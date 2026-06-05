@@ -1,0 +1,3293 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>信件製作追蹤系統</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f1117;--surface:#181c27;--surface2:#1f2435;--border:#2a2f45;--border2:#353c58;
+  --accent:#4f8ef7;--green:#3ecf8e;--amber:#f5a623;--red:#f25f5c;--purple:#9b7ff4;
+  --text:#e8eaf0;--text2:#8890a8;--text3:#555d7a;
+  --mono:'IBM Plex Mono',monospace;--sans:'Noto Sans TC',sans-serif;
+  --r:8px;--rl:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6;min-height:100vh;}
+.app{display:flex;flex-direction:column;min-height:100vh;}
+.topbar{display:flex;align-items:center;gap:16px;padding:0 24px;height:56px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.logo{font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:.05em;white-space:nowrap;}
+.logo span{color:var(--text2);}
+.nav{display:flex;gap:4px;margin-left:24px;}
+.nav-btn{background:none;border:none;color:var(--text2);font-family:var(--sans);font-size:13px;padding:6px 14px;border-radius:var(--r);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.nav-btn:hover{color:var(--text);background:var(--surface2);}
+.nav-btn.active{color:var(--accent);background:rgba(79,142,247,.12);}
+.nav-btn.admin-only{display:none;}.nav-btn.admin-only.visible{display:inline-flex;}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.badge-count{background:var(--accent);color:#fff;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:20px;}
+.main{flex:1;padding:24px;max-width:1440px;margin:0 auto;width:100%;}
+.page{display:none;}.page.active{display:block;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:20px;overflow:visible;}
+.card-title{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.fg4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.field{display:flex;flex-direction:column;gap:6px;}.field.full{grid-column:1/-1;}
+label{font-size:12px;color:var(--text2);font-family:var(--mono);}
+input,select,textarea{background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:14px;padding:9px 12px;outline:none;transition:border-color .15s;width:100%;}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+input[readonly]:not([type="date"]){color:var(--text2);cursor:not-allowed;background:var(--surface2);border-color:var(--border);}
+input[type="date"]{cursor:pointer;color-scheme:dark;}
+select option{background:var(--surface2);}
+textarea{resize:vertical;min-height:70px;}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:var(--r);border:none;font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;transition:all .15s;}
+.btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover{background:#3a7de8;}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2);}.btn-secondary:hover{background:var(--border);}
+.btn-danger{background:rgba(242,95,92,.15);color:var(--red);border:1px solid rgba(242,95,92,.3);}.btn-danger:hover{background:rgba(242,95,92,.25);}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-family:var(--mono);font-weight:500;white-space:nowrap;}
+.badge::before{content:'';width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.badge-pending{background:rgba(85,93,122,.3);color:var(--text2);}.badge-pending::before{background:var(--text3);}
+.badge-wip{background:rgba(79,142,247,.15);color:var(--accent);}.badge-wip::before{background:var(--accent);animation:pulse 1.5s infinite;}
+.badge-done{background:rgba(62,207,142,.12);color:var(--green);}.badge-done::before{background:var(--green);}
+.badge-revision{background:rgba(245,166,35,.15);color:var(--amber);}.badge-revision::before{background:var(--amber);}
+.badge-closed{background:rgba(85,93,122,.2);color:var(--text3);}.badge-closed::before{background:var(--text3);}
+.badge-miss{background:rgba(242,95,92,.15);color:var(--red);border:1px solid rgba(242,95,92,.2);}.badge-miss::before{background:var(--red);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.tw{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.08em;padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,.02);}
+.mid{font-family:var(--mono);font-size:12px;color:var(--text2);}
+.sc{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start;}
+.kcol{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;}
+.khead{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.klabel{font-family:var(--mono);font-size:11px;letter-spacing:.06em;}
+.kcount{background:var(--surface2);color:var(--text2);font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:10px;}
+.kbody{padding:10px;display:flex;flex-direction:column;gap:8px;min-height:80px;}
+.kcard{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:11px 13px;cursor:pointer;transition:border-color .15s;}
+.kcard:hover{border-color:var(--border2);}
+.kid{font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:5px;}
+.ksub{font-size:12px;color:var(--text);line-height:1.4;margin-bottom:8px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.kmeta{display:flex;align-items:center;justify-content:space-between;}
+.dtag{font-size:11px;color:var(--text2);background:var(--border);padding:2px 7px;border-radius:4px;}
+.miss-dot{width:7px;height:7px;border-radius:50%;background:var(--red);flex-shrink:0;}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:18px 20px;}
+.stat-label{font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:8px;letter-spacing:.06em;}
+.stat-value{font-family:var(--mono);font-size:26px;font-weight:500;}
+.sv-blue{color:var(--accent);}.sv-green{color:var(--green);}.sv-amber{color:var(--amber);}.sv-red{color:var(--red);}.sv-purple{color:var(--purple);}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:4px;}
+.bar-chart{display:flex;flex-direction:column;gap:10px;}
+.bar-row{display:flex;align-items:center;gap:10px;}
+.bar-name{font-size:12px;color:var(--text2);width:82px;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bar-track{flex:1;height:22px;background:var(--surface2);border-radius:4px;overflow:hidden;position:relative;}
+.bar-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;transition:width .5s ease;}
+.bar-fill span{font-family:var(--mono);font-size:11px;color:#fff;}
+.ep{display:inline-block;background:rgba(242,95,92,.15);color:var(--red);font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:4px;}
+.rp{display:inline-block;background:rgba(245,166,35,.12);color:var(--amber);font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:4px;}
+.zp{display:inline-block;background:rgba(62,207,142,.1);color:var(--green);font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:4px;}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:200;display:none;align-items:center;justify-content:center;padding:20px;}
+.mo.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--rl);width:100%;max-width:580px;max-height:90vh;overflow-y:auto;}
+.mhead{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);}
+.mtitle{font-family:var(--mono);font-size:13px;color:var(--text);}
+.mclose{background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;padding:4px;line-height:1;}.mclose:hover{color:var(--text);}
+.mbody{padding:22px;}.mfoot{display:flex;gap:10px;justify-content:flex-end;padding:16px 22px;border-top:1px solid var(--border);}
+.dg{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.df{display:flex;flex-direction:column;gap:4px;}.df.full{grid-column:1/-1;}
+.dl{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;}
+.dv{font-size:13px;color:var(--text);}
+.ctr-row{display:flex;align-items:center;gap:10px;}
+.ctr-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;}.ctr-btn:hover{background:var(--border);}
+.ctr-val{font-family:var(--mono);font-size:18px;min-width:28px;text-align:center;}
+.filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+.fsel{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);font-family:var(--sans);font-size:13px;padding:7px 12px;outline:none;cursor:pointer;}
+.sinput{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:13px;padding:7px 12px;outline:none;width:220px;}
+.sinput:focus{border-color:var(--accent);}.sinput::placeholder{color:var(--text3);}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--green);color:var(--green);font-family:var(--mono);font-size:12px;padding:10px 18px;border-radius:var(--r);z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;}
+.toast.show{transform:translateY(0);opacity:1;}
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.pt{font-family:var(--mono);font-size:16px;color:var(--text);}
+.ps{font-size:12px;color:var(--text3);margin-top:2px;}
+.empty{text-align:center;padding:40px 24px;color:var(--text3);font-size:13px;}
+.divider{margin:22px 0;border:none;border-top:1px solid var(--border);}
+.ls{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;align-items:center;justify-content:center;}
+.ls.hidden{display:none;}
+.lbox{background:var(--surface);border:1px solid var(--border2);border-radius:var(--rl);padding:40px 36px;width:100%;max-width:420px;}
+.llogo{font-family:var(--mono);font-size:18px;color:var(--accent);letter-spacing:.06em;margin-bottom:6px;}
+.llogo span{color:var(--text2);}
+.lsub{font-size:12px;color:var(--text3);margin-bottom:28px;}
+.llabel{font-family:var(--mono);font-size:11px;color:var(--text2);margin-bottom:10px;letter-spacing:.08em;}
+.lgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
+.lbtn{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 12px;cursor:pointer;text-align:center;transition:all .15s;color:var(--text2);font-family:var(--sans);font-size:14px;}
+.lbtn:hover{border-color:var(--border2);color:var(--text);}
+.lbtn.sel{border-color:var(--accent);background:rgba(79,142,247,.12);color:var(--accent);}
+.lbtn .li{font-size:20px;margin-bottom:5px;}
+.lbtn .ln{font-weight:500;font-size:14px;}
+.lbtn .lr{font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--mono);}
+.lbtn.sel .lr{color:rgba(79,142,247,.7);}
+.chip{display:flex;align-items:center;gap:6px;background:rgba(79,142,247,.1);border:1px solid rgba(79,142,247,.2);border-radius:20px;padding:4px 12px 4px 8px;cursor:pointer;transition:all .15s;}
+.chip:hover{background:rgba(79,142,247,.18);}
+.chip-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);}
+.chip-name{font-family:var(--mono);font-size:12px;color:var(--accent);}
+.chip.admin{background:rgba(245,166,35,.12);border-color:rgba(245,166,35,.3);}
+.chip.admin .chip-dot{background:var(--amber);}
+.chip.admin .chip-name{color:var(--amber);}
+.ab{display:inline-flex;align-items:center;gap:4px;background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.25);color:var(--amber);font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:20px;margin-left:8px;vertical-align:middle;}
+.pwo{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;display:none;align-items:center;justify-content:center;}
+.pwo.open{display:flex;}
+.pwbox{background:var(--surface);border:1px solid var(--border2);border-radius:var(--rl);padding:32px 28px;width:100%;max-width:340px;}
+.pwt{font-family:var(--mono);font-size:13px;color:var(--text);margin-bottom:6px;}
+.pws{font-size:12px;color:var(--text3);margin-bottom:20px;}
+.pwerr{font-size:12px;color:var(--red);font-family:var(--mono);margin-top:8px;min-height:18px;}
+.pwact{display:flex;gap:10px;margin-top:20px;}
+.lro{font-size:13px;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;cursor:not-allowed;display:flex;align-items:center;gap:6px;}
+.hpanel{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-top:4px;}
+.hpanel-title{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:10px;}
+.hrow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.hcell{display:flex;flex-direction:column;gap:4px;}
+.hcell label{font-size:10px;color:var(--text3);font-family:var(--mono);}
+.hcell input{font-size:13px;padding:7px 10px;}
+.htotal{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.htotal-label{font-size:11px;color:var(--text3);font-family:var(--mono);}
+.htotal-val{font-family:var(--mono);font-size:14px;color:var(--accent);font-weight:500;}
+.hlock-note{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:6px;}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.ss{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:20px;}
+.ss.full{grid-column:1/-1;}
+.sst{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;}
+.irow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.irow:last-child{border-bottom:none;}
+.ilabel{flex:1;font-size:13px;color:var(--text);}
+.inf{display:flex;gap:8px;margin-top:14px;padding-top:14px;border-top:1px dashed var(--border);flex-wrap:wrap;}
+.inf input{flex:1;min-width:80px;}
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
+.bundle-table th{background:var(--surface2);}
+.bundle-table td input{background:transparent;border:1px solid transparent;border-radius:4px;padding:5px 8px;font-size:12px;font-family:var(--mono);color:var(--text);width:100%;transition:border-color .15s;}
+.bundle-table td input:focus{border-color:var(--accent);background:var(--bg);}
+.bundle-table td input[readonly]{color:var(--text2);cursor:default;}
+.bundle-table td.calc{font-family:var(--mono);font-size:12px;color:var(--accent);text-align:right;white-space:nowrap;}
+.wh-table td{font-family:var(--mono);font-size:12px;}
+.wh-table td.num{text-align:right;color:var(--accent);}
+.wh-table td.std{text-align:right;color:var(--text2);}
+.th-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px;}
+.th-teams{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:start;}
+.th-team-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;}
+.th-team-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.th-team-name{font-family:var(--mono);font-size:12px;font-weight:500;}
+.th-team-total{font-family:var(--mono);font-size:13px;color:var(--accent);}
+.th-designer-row{border-bottom:1px solid var(--border);}
+.th-designer-row:last-child{border-bottom:none;}
+.th-designer-main{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;cursor:pointer;transition:background .12s;}
+.th-designer-main:hover{background:rgba(255,255,255,.03);}
+.th-designer-name{font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px;}
+.th-designer-hrs{font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:500;}
+.th-designer-hrs.zero{color:var(--text3);}
+.th-expand-icon{font-size:10px;color:var(--text3);transition:transform .15s;}
+.th-expand-icon.open{transform:rotate(180deg);}
+.th-detail{display:none;padding:10px 16px 12px;background:var(--bg);border-top:1px solid var(--border);}
+.th-detail.open{display:block;}
+.th-detail-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 16px;}
+.th-detail-item{display:flex;justify-content:space-between;font-size:11px;}
+.th-detail-label{color:var(--text3);font-family:var(--mono);}
+.th-detail-val{color:var(--text2);font-family:var(--mono);}
+.th-detail-mails{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.th-mail-chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--text2);margin:2px;}
+.th-empty{padding:20px 16px;font-size:12px;color:var(--text3);text-align:center;}
+.th-date-range{display:flex;gap:6px;align-items:center;}
+.th-date-range input{width:130px;font-size:12px;padding:6px 10px;}
+.th-date-range span{font-size:12px;color:var(--text3);}
+
+/* Firebase 狀態指示 */
+.fb-status{display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;}
+.fb-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0;transition:background .3s;}
+.fb-dot.connected{background:var(--green);animation:fbpulse 2s infinite;}
+.fb-dot.connecting{background:var(--amber);}
+.fb-dot.error{background:var(--red);}
+@keyframes fbpulse{0%,100%{opacity:1}50%{opacity:.5}}
+.fb-label{font-family:var(--mono);font-size:10px;color:var(--text3);}
+
+@media(max-width:900px){.kanban{grid-template-columns:1fr 1fr;}.stats-grid{grid-template-columns:1fr 1fr;}.cg{grid-template-columns:1fr;}.fg2,.fg4,.hrow{grid-template-columns:1fr 1fr;}.sg{grid-template-columns:1fr;}}
+@media(max-width:1100px){.th-teams{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:600px){.th-teams{grid-template-columns:1fr;}}
+
+/* ══ 績效看板 ══════════════════════════════════════════ */
+.perf-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.perf-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:16px 18px;}
+.perf-label{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:6px;}
+.perf-val{font-family:var(--mono);font-size:22px;font-weight:500;}
+.perf-sub{font-size:11px;color:var(--text3);margin-top:3px;}
+.perf-rate{font-family:var(--mono);font-size:12px;margin-top:4px;}
+.perf-rate.good{color:var(--green);}
+.perf-rate.bad{color:var(--red);}
+.perf-rate.neutral{color:var(--text2);}
+
+/* 設計師績效大表 */
+.perf-table th{background:var(--surface2);font-size:10px;padding:8px 10px;}
+.perf-table td{font-size:12px;padding:9px 10px;}
+.perf-table td.mono{font-family:var(--mono);}
+.perf-table tr.my-group td{background:rgba(79,142,247,.06);}
+.perf-table tr.my-group td:first-child::before{content:'★ ';color:var(--accent);}
+
+/* 看板 — 自己組員高亮 */
+.kcard.my-team{border-color:rgba(79,142,247,.4);background:rgba(79,142,247,.05);}
+.kcard.my-team .kid::after{content:' ★';color:var(--accent);font-size:9px;}
+
+/* 清單行 — 自己組員高亮 */
+.list-my-row td{background:rgba(79,142,247,.04) !important;}
+.list-my-row td:first-child{border-left:2px solid var(--accent);}
+
+/* 績效指標 badge */
+.ind-ok{display:inline-block;background:rgba(62,207,142,.12);color:var(--green);font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:4px;}
+.ind-bad{display:inline-block;background:rgba(242,95,92,.12);color:var(--red);font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:4px;}
+.ind-na{display:inline-block;color:var(--text3);font-family:var(--mono);font-size:11px;padding:1px 7px;}
+
+/* 工單 perf modal 區塊 */
+.pmo-section{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:12px;}
+.pmo-section-title{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:12px;text-transform:uppercase;}
+.pmo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.pmo-field{display:flex;flex-direction:column;gap:4px;}
+.pmo-field label{font-size:11px;color:var(--text3);font-family:var(--mono);}
+.pmo-field input[type="number"]{font-size:13px;padding:6px 10px;}
+.pmo-field select{font-size:13px;padding:6px 10px;}
+.pmo-field textarea{font-size:12px;min-height:50px;}
+
+/* 清單頁篩選加強 */
+.filter-tag{display:inline-flex;align-items:center;gap:4px;background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.25);color:var(--accent);font-family:var(--mono);font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer;}
+.filter-tag:hover{background:rgba(79,142,247,.2);}
+.filter-tag.active{background:rgba(79,142,247,.25);border-color:var(--accent);}
+
+/* 設計師歸屬設定 */
+.des-assign-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.des-assign-row:last-child{border-bottom:none;}
+.des-assign-name{flex:1;font-size:13px;color:var(--text);}
+.des-assign-sel{width:140px;font-size:12px;padding:5px 8px;}
+
+/* 組長管理 — 可無限新增 */
+.leader-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);}
+.leader-row:last-child{border-bottom:none;}
+
+/* 時間切換 tabs */
+.period-tabs{display:flex;gap:4px;background:var(--surface2);border-radius:var(--r);padding:3px;}
+.period-tab{background:none;border:none;color:var(--text2);font-family:var(--mono);font-size:11px;padding:5px 14px;border-radius:6px;cursor:pointer;transition:all .12s;}
+.period-tab.active{background:var(--accent);color:#fff;}
+
+/* 趨勢迷你圖 */
+.sparkline{display:flex;align-items:flex-end;gap:2px;height:28px;}
+.spark-bar{flex:1;background:var(--accent);border-radius:2px 2px 0 0;min-height:2px;transition:height .3s;}
+
+@media(max-width:900px){.perf-grid{grid-template-columns:1fr 1fr;}}
+
+/* ══ 週報樣式 ══════════════════════════════════════════ */
+.weekly-group-tab{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 18px;cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--text2);transition:all .15s;}
+.weekly-group-tab:hover{border-color:var(--border2);color:var(--text);}
+.weekly-group-tab.active{border-color:var(--accent);background:rgba(79,142,247,.12);color:var(--accent);}
+
+.weekly-table{width:100%;border-collapse:collapse;font-size:12px;}
+.weekly-table th{background:var(--surface2);font-family:var(--mono);font-size:10px;color:var(--text3);padding:8px 10px;border:1px solid var(--border);text-align:center;white-space:nowrap;}
+.weekly-table th.section-header{background:var(--border);color:var(--text2);font-size:11px;letter-spacing:.06em;}
+.weekly-table td{padding:9px 10px;border:1px solid var(--border);text-align:center;font-family:var(--mono);font-size:12px;}
+.weekly-table td.name-col{text-align:left;font-family:var(--sans);font-size:13px;font-weight:500;}
+.weekly-table td.total-col{background:rgba(79,142,247,.1);color:var(--accent);font-weight:500;}
+.weekly-table td.inner-col{background:rgba(245,166,35,.08);color:var(--amber);}
+.weekly-table td.rev-col{background:rgba(155,127,244,.08);color:var(--purple);}
+.weekly-table td.avg-row td{background:rgba(62,207,142,.06);color:var(--green);font-weight:500;}
+.weekly-table tr.avg-row td{background:rgba(62,207,142,.06)!important;color:var(--green);font-weight:500;border-top:2px solid var(--green);}
+.weekly-table tr:hover td{background:rgba(255,255,255,.025);}
+.weekly-table tr.avg-row:hover td{background:rgba(62,207,142,.1)!important;}
+.weekly-table td.on-leave{background:rgba(242,95,92,.08);color:var(--red);}
+.day-col-header{display:flex;flex-direction:column;align-items:center;gap:1px;}
+.day-col-header .day-num{font-size:12px;}
+.day-col-header .day-name{font-size:9px;color:var(--text3);}
+
+/* ══ 休假日曆 ══════════════════════════════════════════ */
+.cal-day{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px;min-height:80px;position:relative;}
+.cal-day.today{border-color:var(--accent);background:rgba(79,142,247,.05);}
+.cal-day.other-month{opacity:.4;}
+.cal-day.weekend{background:rgba(255,255,255,.01);}
+.cal-day-num{font-family:var(--mono);font-size:12px;color:var(--text2);margin-bottom:4px;}
+.cal-day.today .cal-day-num{color:var(--accent);font-weight:500;}
+.leave-chip{font-size:10px;border-radius:3px;padding:1px 6px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.leave-special{background:rgba(79,142,247,.25);color:#7fb3ff;}
+.leave-sick{background:rgba(242,95,92,.25);color:#f98e8c;}
+.leave-personal{background:rgba(245,166,35,.25);color:#f7c060;}
+.leave-holiday{background:rgba(62,207,142,.25);color:#6de8b2;}
+.leave-comp{background:rgba(155,127,244,.25);color:#b89cf7;}
+.cal-header-cell{font-family:var(--mono);font-size:11px;color:var(--text3);text-align:center;padding:6px 0;border-bottom:1px solid var(--border);}
+
+.upcoming-leave-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);}
+.upcoming-leave-item:last-child{border-bottom:none;}
+.leave-badge{font-size:11px;border-radius:4px;padding:2px 8px;font-family:var(--mono);white-space:nowrap;}
+</style>
+</head>
+<body>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<!-- ── LOGIN ─────────────────────────────────────── -->
+<div class="ls" id="ls">
+  <div class="lbox">
+    <div class="llogo">MAIL<span>/</span>TRACKER</div>
+    <div class="lsub">請選擇身份以繼續</div>
+    <div class="llabel">組長身份</div>
+    <div class="lgrid" id="leader-grid"></div>
+    <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:16px;">
+      <div class="llabel" style="margin-bottom:10px;">管理者身份</div>
+      <button class="lbtn" onclick="selLeader('__admin__',this)" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;text-align:left;">
+        <div style="font-size:18px;">🛡️</div>
+        <div><div class="ln" style="font-size:14px;">管理者</div><div class="lr">ADMIN — 需要密碼驗證</div></div>
+      </button>
+      <div id="emergency-recovery" style="display:none;margin-top:12px;padding:12px;background:rgba(242,95,92,.1);border:1px solid rgba(242,95,92,.3);border-radius:8px;">
+        <div style="font-size:12px;color:var(--red);margin-bottom:8px;">⚠ 組長資料載入失敗，點下方恢復</div>
+        <button class="btn btn-danger btn-sm" style="width:100%;justify-content:center;" onclick="emergencyRestoreLeaders()">🔄 恢復預設組長資料</button>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="login-confirm" style="width:100%;justify-content:center;opacity:.4;pointer-events:none" onclick="confirmLogin()">進入系統</button>
+  </div>
+</div>
+
+<!-- ── PW MODAL ──────────────────────────────────── -->
+<div class="pwo" id="pwo">
+  <div class="pwbox">
+    <div class="pwt">🛡️ 管理者驗證</div>
+    <div class="pws">請輸入管理者密碼</div>
+    <input type="password" id="pw-input" placeholder="輸入密碼…" onkeydown="if(event.key==='Enter')submitPw()">
+    <div class="pwerr" id="pw-err"></div>
+    <div class="pwact">
+      <button class="btn btn-secondary" style="flex:1;justify-content:center" onclick="cancelPw()">取消</button>
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="submitPw()">確認</button>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+<div class="topbar">
+  <div class="logo">MAIL<span>/</span>TRACKER</div>
+  <nav class="nav">
+    <button class="nav-btn active" onclick="goPage('dispatch',this)">派單</button>
+    <button class="nav-btn" onclick="goPage('board',this)">看板</button>
+    <button class="nav-btn" onclick="goPage('list',this)">清單</button>
+    <button class="nav-btn" onclick="goPage('bundle',this)">工時彙整</button>
+    <button class="nav-btn" onclick="goPage('weekly',this)">週報</button>
+    <button class="nav-btn" onclick="goPage('perf',this)">績效看板</button>
+    <button class="nav-btn" onclick="goPage('monthsum',this)">月彙整</button>
+    <button class="nav-btn" onclick="goPage('leave',this)">休假日曆</button>
+    <button class="nav-btn admin-only" id="nav-settings" onclick="goPage('settings',this)">⚙ 設定</button>
+  </nav>
+  <div class="topbar-right">
+    <span class="badge-count" id="wip-count">0</span>
+    <span style="font-size:12px;color:var(--text3)">製作中</span>
+    <!-- Firebase 即時連線狀態 -->
+    <div class="fb-status">
+      <div class="fb-dot" id="fb-dot"></div>
+      <span class="fb-label" id="fb-label">連線中…</span>
+    </div>
+    <div class="chip" id="user-chip" onclick="switchUser()" title="切換身份">
+      <div class="chip-dot"></div>
+      <span class="chip-name" id="chip-label">—</span>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- ══ 派單 ══════════════════════════════════════════ -->
+<div class="page active" id="page-dispatch">
+  <div class="ph">
+    <div><div class="pt">新增派單</div><div class="ps">選擇專案後工時自動帶入；特殊情況可調整，不影響標準包</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">派單資訊</div>
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="fg2">
+        <div class="field">
+          <label>信件主旨 *</label>
+          <input type="text" id="f-subject" placeholder="請輸入信件主旨">
+        </div>
+        <div class="field">
+          <label>所屬專案 *</label>
+          <div style="position:relative;">
+            <input type="text" id="f-project-input" list="f-project-list"
+              placeholder="輸入或搜尋專案…"
+              oninput="onProjInput(this.value)" onchange="onProjChange(this.value)"
+              autocomplete="off">
+            <datalist id="f-project-list"></datalist>
+            <input type="hidden" id="f-project" value="">
+          </div>
+        </div>
+      </div>
+      <div class="fg2">
+        <div class="field">
+          <label>指派設計師 *</label>
+          <select id="f-designer"><option value="">— 選擇設計師 —</option></select>
+        </div>
+        <div class="field">
+          <label>預計完成日 *</label>
+          <input type="date" id="f-due" style="cursor:pointer;min-width:160px;">
+        </div>
+      </div>
+      <div class="fg2">
+        <div class="field">
+          <label>狀態</label>
+          <select id="f-status">
+            <option value="pending">預先登記</option>
+            <option value="wip">內部反修中</option>
+            <option value="done">已完成</option>
+            <option value="revision">外部反修中</option>
+          </select>
+        </div>
+      </div>
+      <div id="hours-panel" style="display:none;">
+        <div class="hpanel">
+          <div class="hpanel-title">工時資訊（來自專案標準包，可為本次調整）</div>
+          <div class="hrow">
+            <div class="hcell"><label>製作時數(hr)</label><input type="number" id="f-hours" min="0" step="0.5"></div>
+            <div class="hcell"><label>內審反修(hr)</label><input type="number" id="f-rev" min="0" step="0.5"></div>
+            <div class="hcell"><label>溝通/檔(hr)</label><input type="number" id="f-comm" min="0" step="0.5"></div>
+          </div>
+          <div class="htotal">
+            <span class="htotal-label">本次工單總工時</span>
+            <span class="htotal-val" id="f-total-display">0 hr</span>
+          </div>
+          <div class="hlock-note" id="bundle-ref"></div>
+        </div>
+      </div>
+      <div class="fg2">
+        <div class="field">
+          <label>等級</label>
+          <select id="f-level"><option value="">— 選擇等級 —</option></select>
+        </div>
+        <div class="field">
+          <label>類別</label>
+          <div style="position:relative;">
+            <input type="text" id="f-category-input" list="f-category-list"
+              placeholder="輸入或搜尋類別…" autocomplete="off"
+              oninput="syncCatInput(this.value,'f-category')">
+            <datalist id="f-category-list"></datalist>
+            <input type="hidden" id="f-category" value="">
+          </div>
+        </div>
+      </div>
+      <div class="field"><label>備註</label><textarea id="f-note" placeholder="補充說明…"></textarea></div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);">
+        <input type="checkbox" id="f-count-perf" style="width:auto;accent-color:var(--accent);" checked>
+        <div>
+          <div style="font-size:13px;color:var(--text);font-weight:500;">單數DC</div>
+          <div style="font-size:11px;color:var(--text3);">勾選後此工單不計入工單數統計（工時仍記錄）</div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:10px;">
+      <button class="btn btn-primary" onclick="submitDispatch()">確認派單</button>
+      <button class="btn btn-secondary" onclick="clearForm()">清除</button>
+    </div>
+  </div>
+  <hr class="divider">
+  <div class="card-title" style="margin-bottom:12px;">今日已派單（<span id="today-count">0</span> 封）</div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="tw"><table><thead><tr><th>ID</th><th>主旨</th><th>專案</th><th>設計師</th><th>等級</th><th>類別</th><th>製作h</th><th>反修h</th><th>溝通h</th><th>外部反修h</th><th>總工時</th><th>截止日</th><th>狀態</th><th></th></tr></thead><tbody id="today-tbody"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ══ 看板 ══════════════════════════════════════════ -->
+<div class="page" id="page-board">
+  <div class="ph">
+    <div><div class="pt">任務看板</div></div>
+    <select class="fsel" id="kanban-filter" onchange="renderKanban()"><option value="">全部設計師</option></select>
+  </div>
+  <div class="kanban">
+    <div class="kcol"><div class="khead"><span class="klabel">預先登記</span><span class="kcount" id="kc-pending">0</span></div><div class="kbody" id="k-pending"></div></div>
+    <div class="kcol"><div class="khead"><span class="klabel" style="color:var(--accent)">內部反修中</span><span class="kcount" id="kc-wip">0</span></div><div class="kbody" id="k-wip"></div></div>
+    <div class="kcol"><div class="khead"><span class="klabel" style="color:var(--green)">已完成</span><span class="kcount" id="kc-done">0</span></div><div class="kbody" id="k-done"></div></div>
+    <div class="kcol"><div class="khead"><span class="klabel" style="color:var(--amber)">外部反修中</span><span class="kcount" id="kc-revision">0</span></div><div class="kbody" id="k-revision"></div></div>
+  </div>
+</div>
+
+<!-- ══ 清單 ══════════════════════════════════════════ -->
+<div class="page" id="page-list">
+  <div class="ph"><div><div class="pt">信件清單</div></div></div>
+  <div class="filters">
+    <input class="sinput" type="text" placeholder="搜尋信件主旨…" oninput="lsSearch(this.value)">
+    <select class="fsel" onchange="lsStatus(this.value)"><option value="">全部狀態</option><option value="pending">預先登記</option><option value="wip">內部反修中</option><option value="done">已完成</option><option value="revision">外部反修中</option></select>
+    <select class="fsel" id="list-df" onchange="lsDesigner(this.value)"><option value="">全部設計師</option></select>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <!-- 篩選快捷 -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="perf-filter-tags">
+      <span class="filter-tag active" onclick="lsPerfFilter('',this)" data-pf="">全部</span>
+      <span class="filter-tag" onclick="lsPerfFilter('gd_error',this)" data-pf="gd_error">GD失誤</span>
+      <span class="filter-tag" onclick="lsPerfFilter('gd_extend',this)" data-pf="gd_extend">GD延單</span>
+      <span class="filter-tag" onclick="lsPerfFilter('inner_miss',this)" data-pf="inner_miss">內審誤植</span>
+      <span class="filter-tag" onclick="lsPerfFilter('d2_miss',this)" data-pf="d2_miss">D-2未達標</span>
+      <span class="filter-tag" onclick="lsPerfFilter('first_pass',this)" data-pf="first_pass">1次過關</span>
+    </div>
+    <div class="tw"><table><thead><tr>
+      <th>工單數</th><th>ID</th><th>主旨</th><th>專案</th><th>設計師</th><th>組長</th>
+      <th>截止日</th><th>狀態</th>
+      <th title="D-2標準">D-2</th>
+      <th title="內審誤植數">誤植</th>
+      <th title="內審次數">內審</th>
+      <th title="1次過關">1過</th>
+      <th title="GD失誤數">GD失</th>
+      <th title="GD延單數">沿單</th>
+      <th title="PIC校稿數">PIC校</th>
+      <th title="PIC反修點數">PIC反</th>
+      <th>總工時</th><th>操作</th>
+    </tr></thead><tbody id="list-tbody"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ══ 週報（組別視角）════════════════════════════════ -->
+<div class="page" id="page-weekly">
+  <div class="ph">
+    <div><div class="pt">週報</div><div class="ps" id="weekly-range-label">本週</div></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <div class="period-tabs">
+        <button class="period-tab active" onclick="setWeeklyPeriod('week',this)">本週</button>
+        <button class="period-tab" onclick="setWeeklyPeriod('custom',this)">自訂</button>
+      </div>
+      <div id="weekly-custom-range" style="display:none;gap:6px;align-items:center;">
+        <input type="date" id="weekly-from" style="width:130px;font-size:12px;padding:6px 10px;">
+        <span style="font-size:12px;color:var(--text3)">→</span>
+        <input type="date" id="weekly-to" style="width:130px;font-size:12px;padding:6px 10px;">
+        <button class="btn btn-primary btn-sm" onclick="renderWeekly()">套用</button>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="exportWeeklyExcel()">⬇ 匯出 Excel</button>
+    </div>
+  </div>
+
+  <!-- 組別 Tab -->
+  <div id="weekly-group-tabs" style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;"></div>
+
+  <!-- 每組的週報內容 -->
+  <div id="weekly-content"></div>
+</div>
+
+<!-- ══ 休假日曆 ═══════════════════════════════════════ -->
+<div class="page" id="page-leave">
+  <div class="ph">
+    <div><div class="pt">休假日曆</div><div class="ps">管理設計師與組長的休假資訊</div></div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn btn-primary btn-sm" onclick="openLeaveAdd()">＋ 新增休假</button>
+      <select class="fsel" id="leave-filter-person" onchange="renderLeaveCalendar()">
+        <option value="">全部人員</option>
+      </select>
+    </div>
+  </div>
+  <!-- 月份切換 -->
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+    <button class="btn btn-secondary btn-sm" onclick="leaveMonthOffset(-1)">‹ 上月</button>
+    <span id="leave-month-label" style="font-family:var(--mono);font-size:14px;color:var(--text);min-width:100px;text-align:center;"></span>
+    <button class="btn btn-secondary btn-sm" onclick="leaveMonthOffset(1)">下月 ›</button>
+    <button class="btn btn-secondary btn-sm" onclick="leaveMonthOffset(0)">今天</button>
+  </div>
+  <!-- 月曆 -->
+  <div class="card" style="padding:16px;">
+    <div id="leave-calendar" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
+  </div>
+  <!-- 即將到來的休假列表 -->
+  <div style="margin-top:20px;" id="leave-upcoming"></div>
+</div>
+
+<!-- ══ 新增休假 Modal ─────────────────────────────── -->
+<div class="mo" id="leave-modal" onclick="if(event.target===this)closeLeaveModal()">
+  <div class="modal" style="max-width:480px;">
+    <div class="mhead">
+      <span class="mtitle" id="leave-modal-title">新增休假</span>
+      <button class="mclose" onclick="closeLeaveModal()">✕</button>
+    </div>
+    <div class="mbody">
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="field">
+          <label>人員 *</label>
+          <select id="leave-person"></select>
+        </div>
+        <div class="fg2">
+          <div class="field"><label>開始日期 *</label><input type="date" id="leave-start" style="cursor:pointer;"></div>
+          <div class="field"><label>結束日期 *</label><input type="date" id="leave-end" style="cursor:pointer;"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);">
+          <input type="checkbox" id="leave-partial" style="width:auto;accent-color:var(--accent);" onchange="toggleLeavePartial(this.checked)">
+          <label style="margin:0;font-size:13px;color:var(--text)">非整天假（部分時數）</label>
+        </div>
+        <div id="leave-partial-row" style="display:none;">
+          <div class="fg2">
+            <div class="field"><label>請假時數 (hr)</label><input type="number" id="leave-hours" min="0.5" max="8" step="0.5" placeholder="例：2"></div>
+            <div class="field"><label>說明</label><input type="text" id="leave-hours-note" placeholder="例：下午請假2小時"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label>假別 *</label>
+          <select id="leave-type">
+            <option value="special">特休</option>
+            <option value="sick">病假</option>
+            <option value="personal">事假</option>
+            <option value="holiday">國定假日</option>
+            <option value="comp">補休</option>
+          </select>
+        </div>
+        <div class="field"><label>備註</label><textarea id="leave-note" rows="2" placeholder="說明…"></textarea></div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-danger" id="leave-delete-btn" style="display:none;" onclick="deleteLeave()">刪除</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-secondary" onclick="closeLeaveModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveLeave()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 績效看板 ═════════════════════════════════════ -->
+<div class="page" id="page-perf">
+  <div class="ph">
+    <div><div class="pt">設計師績效看板</div><div class="ps" id="perf-scope-label">統計範圍：本週</div></div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <div class="period-tabs" id="perf-period-tabs">
+        <button class="period-tab active" onclick="setPerfPeriod('week',this)">本週</button>
+        <button class="period-tab" onclick="setPerfPeriod('month',this)">本月</button>
+        <button class="period-tab" onclick="setPerfPeriod('year',this)">本年</button>
+        <button class="period-tab" onclick="setPerfPeriod('custom',this)">自訂</button>
+      </div>
+      <div id="perf-custom-range" style="display:none;gap:6px;align-items:center;display:none;">
+        <input type="date" id="perf-from" style="width:130px;font-size:12px;padding:6px 10px;">
+        <span style="font-size:12px;color:var(--text3)">→</span>
+        <input type="date" id="perf-to" style="width:130px;font-size:12px;padding:6px 10px;">
+        <button class="btn btn-primary btn-sm" onclick="renderPerf()">套用</button>
+      </div>
+      <!-- 管理員才有組別篩選 -->
+      <select class="fsel" id="perf-group-filter" onchange="onPerfGroupChange(this.value)" style="display:none;">
+        <option value="">全部組別</option>
+      </select>
+      <select class="fsel" id="perf-des-filter" onchange="renderPerf()">
+        <option value="">全部設計師</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- KPI 卡片 -->
+  <div class="perf-grid" id="perf-kpi"></div>
+
+  <!-- 設計師績效大表 -->
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:20px;">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.08em;">設計師績效明細（工單數排除DC工單，各項指標以計入工單數為母數；工時含DC；點名字展開工單明細）</div>
+    <div class="tw">
+      <table class="perf-table">
+        <thead><tr>
+          <th>設計師</th><th>組別</th>
+          <th title="納入績效工單數">工單數</th>
+          <th title="總工時">工時h</th>
+          <th title="D-2標準達標數 / 達標率">D-2 達標</th>
+          <th title="GD失誤數 / 占比">GD失誤</th>
+          <th title="GD延單數 / 占比">GD延單</th>
+          <th title="個人內審 ≥2 修改單數 / 內審率">內審率</th>
+          <th title="內審誤植數 / 誤植率">誤植率</th>
+          <th title="1次過關數 / 1次過關率">1過率</th>
+          <th title="PIC校稿數">PIC校</th>
+          <th title="PIC反修點數">PIC反</th>
+        </tr></thead>
+        <tbody id="perf-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 長條圖區 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+    <div class="card">
+      <div class="card-title">GD失誤率 排名（由高到低）</div>
+      <div class="bar-chart" id="perf-bar-gd-error"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">1次過關率 排名（由高到低）</div>
+      <div class="bar-chart" id="perf-bar-first-pass"></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <div class="card">
+      <div class="card-title">內審率 排名（由高到低）</div>
+      <div class="bar-chart" id="perf-bar-inner"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">D-2 達標率 排名（由高到低）</div>
+      <div class="bar-chart" id="perf-bar-d2"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 月彙整 ═══════════════════════════════════════════ -->
+<div class="page" id="page-monthsum">
+  <div class="ph">
+    <div><div class="pt">等級類別月彙整</div><div class="ps">統計各等級、類別的工單數、外部反修數與反修率</div></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <select class="fsel" id="ms-year" onchange="renderMonthSum()"></select>
+      <select class="fsel" id="ms-month" onchange="renderMonthSum()"></select>
+      <select class="fsel" id="ms-group" onchange="renderMonthSum()"><option value="">全部組別</option></select>
+      <button class="btn btn-secondary btn-sm" onclick="exportMonthSumExcel()">⬇ 匯出 Excel</button>
+    </div>
+  </div>
+
+  <!-- 等級彙整 -->
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:20px;">
+    <div style="padding:12px 18px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--text3);">依等級統計（工單數排除DC，工時含DC）</div>
+    <div class="tw">
+      <table class="perf-table" style="table-layout:fixed;width:100%;">
+        <colgroup>
+          <col style="width:220px">
+          <col style="width:120px">
+          <col style="width:140px">
+          <col style="width:130px">
+          <col style="width:130px">
+        </colgroup>
+        <thead><tr>
+          <th style="text-align:left">等級</th>
+          <th style="text-align:right">工單數</th>
+          <th style="text-align:right">外部反修單數</th>
+          <th style="text-align:right">反修率(%)</th>
+          <th style="text-align:right">總工時(hr)</th>
+        </tr></thead>
+        <tbody id="ms-level-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 類別彙整 -->
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div style="padding:12px 18px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--text3);">依類別統計（工單數排除DC，工時含DC）</div>
+    <div class="tw">
+      <table class="perf-table" style="table-layout:fixed;width:100%;">
+        <colgroup>
+          <col style="width:220px">
+          <col style="width:120px">
+          <col style="width:140px">
+          <col style="width:130px">
+          <col style="width:130px">
+        </colgroup>
+        <thead><tr>
+          <th style="text-align:left">類別</th>
+          <th style="text-align:right">工單數</th>
+          <th style="text-align:right">外部反修單數</th>
+          <th style="text-align:right">反修率(%)</th>
+          <th style="text-align:right">總工時(hr)</th>
+        </tr></thead>
+        <tbody id="ms-cat-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 工單明細展開面板 -->
+  <div id="ms-detail-panel" style="display:none;margin-top:16px;">
+    <div class="card" style="padding:0;overflow:hidden;border-color:var(--accent);">
+      <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:rgba(79,142,247,.06);">
+        <span id="ms-detail-title" style="font-family:var(--mono);font-size:12px;color:var(--accent)"></span>
+        <button class="btn btn-secondary btn-sm" onclick="closeMsDetail()">✕ 收起</button>
+      </div>
+      <div class="tw">
+        <table class="perf-table">
+          <thead><tr>
+            <th>ID</th><th>主旨</th><th>設計師</th><th>組長</th>
+            <th>狀態</th><th style="text-align:right">總工時</th>
+            <th style="text-align:right">外部反修</th><th>截止日</th>
+          </tr></thead>
+          <tbody id="ms-detail-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 工時彙整 ═════════════════════════════════════ -->
+<div class="page" id="page-bundle">
+  <div class="ph">
+    <div><div class="pt">專案工時大彙整</div><div class="ps" id="bundle-page-sub">所有組長唯讀；管理者可直接編輯儲存</div></div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <input class="sinput" type="text" placeholder="搜尋專案…" oninput="renderBundlePage(this.value)" style="width:200px;">
+      <!-- 管理者才看得到儲存按鈕 -->
+      <button class="btn btn-primary btn-sm admin-only" id="btn-save-bundle" onclick="saveBundleEdits()">💾 儲存所有變更</button>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;" id="bundle-summary"></div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="tw">
+      <table class="bundle-table" id="bundle-tbl">
+        <thead><tr>
+          <th style="min-width:180px">專案</th>
+          <th style="text-align:right">工時(hr)</th>
+          <th style="text-align:right">內審反修(hr)</th>
+          <th style="text-align:right">溝通/檔(hr)</th>
+          <th style="text-align:right">外部反修(hr)</th>
+          <th style="text-align:right">單工單總工時</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="bundle-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="bundle-add-row" style="display:none;margin-top:14px;">
+    <div class="card" style="margin-bottom:14px;border-color:rgba(79,142,247,.3);background:rgba(79,142,247,.04);">
+      <div class="card-title" style="color:var(--accent)">📋 從 Google Sheet 貼上匯入</div>
+      <textarea id="paste-import-area" placeholder="貼上從 Google Sheet 複製的內容（含標題列）…" style="min-height:140px;font-family:var(--mono);font-size:12px;margin-bottom:10px;"></textarea>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="parsePasteImport()">解析並匯入</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('paste-import-area').value=''">清除</button>
+        <span id="import-status" style="font-family:var(--mono);font-size:12px;color:var(--text3)"></span>
+      </div>
+      <div id="import-preview" style="display:none;margin-top:14px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:8px;">解析結果預覽</div>
+        <div class="tw" style="max-height:260px;overflow-y:auto;">
+          <table><thead><tr><th>專案</th><th>工時h</th><th>內審反修h</th><th>溝通/檔h</th><th>外部反修h</th><th>總工時</th></tr></thead>
+          <tbody id="import-preview-tbody"></tbody></table>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:10px;align-items:center;">
+          <button class="btn btn-primary" onclick="confirmPasteImport()">確認匯入</button>
+          <button class="btn btn-secondary" onclick="cancelImport()">取消</button>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;margin:0;">
+            <input type="checkbox" id="import-overwrite" style="width:auto;"> 覆蓋同名專案
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">手動新增單筆專案</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="field" style="flex:2;min-width:130px;"><label>專案 *</label><input type="text" id="bn-name" placeholder="輸入名稱"></div>
+        <div class="field" style="width:80px;"><label>工時h</label><input type="number" id="bn-h" min="0" step="0.5" placeholder="0"></div>
+        <div class="field" style="width:80px;"><label>內審反修h</label><input type="number" id="bn-r" min="0" step="0.5" placeholder="0"></div>
+        <div class="field" style="width:80px;"><label>溝通/檔h</label><input type="number" id="bn-c" min="0" step="0.5" placeholder="0"></div>
+        <div class="field" style="width:80px;"><label>外部反修h</label><input type="number" id="bn-ex" min="0" step="0.5" placeholder="0"></div>
+        <button class="btn btn-primary" onclick="addBundleProj()" style="align-self:flex-end;">新增</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 設定 ══════════════════════════════════════════ -->
+<div class="page" id="page-settings">
+  <div class="ph">
+    <div><div class="pt">系統設定 <span class="ab">🛡️ 管理者</span></div><div class="ps">所有變更即時透過 Firebase 同步至全裝置</div></div>
+  </div>
+  <div class="sg">
+    <div class="ss">
+      <div class="sst">
+        <span>組長名稱</span>
+        <button class="btn btn-primary btn-sm" onclick="addLeader()">＋ 新增組長</button>
+      </div>
+      <div id="leaders-list"></div>
+    </div>
+    <div class="ss">
+      <div class="sst"><span>設計師名單</span><span id="d-count" style="font-size:10px;color:var(--text3);font-family:var(--mono)"></span></div>
+      <div id="designers-list"></div>
+      <div class="inf">
+        <input type="text" id="new-d" placeholder="新增設計師姓名…" onkeydown="if(event.key==='Enter')addDesigner()">
+        <button class="btn btn-primary btn-sm" onclick="addDesigner()">新增</button>
+      </div>
+    </div>
+    <!-- 設計師歸屬設定 -->
+    <div class="ss full">
+      <div class="sst"><span>設計師隸屬組長</span></div>
+      <div id="des-assign-list"></div>
+    </div>
+    <!-- 等級管理 -->
+    <div class="ss">
+      <div class="sst"><span>等級清單</span><span id="level-count" style="font-size:10px;color:var(--text3);font-family:var(--mono)"></span></div>
+      <div id="levels-list" style="max-height:300px;overflow-y:auto;"></div>
+      <div class="inf">
+        <input type="text" id="new-level" placeholder="新增等級…" onkeydown="if(event.key==='Enter')addLevel()">
+        <button class="btn btn-primary btn-sm" onclick="addLevel()">新增</button>
+      </div>
+    </div>
+    <!-- 類別管理 -->
+    <div class="ss">
+      <div class="sst"><span>類別清單</span><span id="cat-count" style="font-size:10px;color:var(--text3);font-family:var(--mono)"></span></div>
+      <div id="categories-list" style="max-height:300px;overflow-y:auto;"></div>
+      <div class="inf">
+        <input type="text" id="new-cat" placeholder="新增類別…" onkeydown="if(event.key==='Enter')addCategory()">
+        <button class="btn btn-primary btn-sm" onclick="addCategory()">新增</button>
+      </div>
+    </div>
+    <div class="ss full">
+      <div class="sst"><span>資料備份 / 還原</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:16px;">
+          <div style="font-size:13px;color:var(--text);font-weight:500;margin-bottom:6px;">⬇ 匯出 JSON</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">將所有資料下載成 .json 檔案備份。</div>
+          <button class="btn btn-primary btn-sm" onclick="exportJSON()">匯出所有資料</button>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:16px;">
+          <div style="font-size:13px;color:var(--text);font-weight:500;margin-bottom:6px;">⬆ 匯入 JSON</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:14px;"><strong style="color:var(--amber)">注意：會覆蓋現有全部資料。</strong></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <label class="btn btn-secondary btn-sm" style="cursor:pointer;">選擇檔案<input type="file" accept=".json" onchange="importJSON(this)" style="display:none;"></label>
+            <span id="import-file-name" style="font-size:12px;color:var(--text3);font-family:var(--mono);">未選擇檔案</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:14px;background:rgba(62,207,142,.06);border:1px solid rgba(62,207,142,.2);border-radius:var(--r);padding:12px 16px;font-size:12px;color:var(--text2);">
+    🔥 資料儲存於 Firebase Realtime Database，所有裝置即時同步，無需額外設定。
+  </div>
+</div>
+
+</div></div>
+
+<!-- ── MAIL MODAL ──────────────────────────────────── -->
+<div class="mo" id="mail-modal" onclick="if(event.target===this)closeMo()">
+  <div class="modal">
+    <div class="mhead"><span class="mtitle" id="mo-id">—</span><button class="mclose" onclick="closeMo()">✕</button></div>
+    <div class="mbody">
+      <div class="dg" id="mo-detail"></div>
+      <hr class="divider">
+      <div id="mo-hours" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:16px;display:grid;grid-template-columns:repeat(5,1fr);gap:10px;font-family:var(--mono);font-size:12px;"></div>
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="field"><label>狀態</label>
+          <select id="mo-status"><option value="pending">預先登記</option><option value="wip">內部反修中</option><option value="done">已完成</option><option value="revision">外部反修中</option><option value="closed">結案</option></select>
+        </div>
+        <!-- 反修次數與失誤次數已移至「績效」功能管理 -->
+        <div class="field" style="display:flex;align-items:center;gap:10px;">
+          <label style="margin:0">DL Miss</label>
+          <input type="checkbox" id="mo-dl" style="width:auto;accent-color:var(--red)">
+          <span style="font-size:12px;color:var(--text3)">勾選代表延遲回信</span>
+        </div>
+        <div class="field"><label>備註 / 反修原因</label><textarea id="mo-note" rows="3" placeholder="填寫原因…"></textarea></div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-danger" onclick="deleteMail(moMailId)">刪除此派單</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-secondary" onclick="closeMo()">取消</button>
+      <button class="btn btn-primary" onclick="saveMo()">儲存更新</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── EDIT MODAL ──────────────────────────────────── -->
+<div class="mo" id="edit-modal" onclick="if(event.target===this)closeEdit()">
+  <div class="modal" style="max-width:640px;">
+    <div class="mhead">
+      <span class="mtitle" id="edit-mo-id">編輯派單</span>
+      <button class="mclose" onclick="closeEdit()">✕</button>
+    </div>
+    <div class="mbody">
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="fg2">
+          <div class="field full">
+            <label>信件主旨 *</label>
+            <input type="text" id="edit-subject" placeholder="請輸入信件主旨">
+          </div>
+        </div>
+        <div class="fg2">
+          <div class="field">
+            <label>所屬專案 *</label>
+            <select id="edit-project" onchange="editPickProj(this.value)">
+              <option value="">— 選擇專案 —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>指派設計師 *</label>
+            <select id="edit-designer"><option value="">— 選擇設計師 —</option></select>
+          </div>
+        </div>
+        <div class="fg2">
+          <div class="field">
+            <label>預計完成日 *</label>
+            <input type="date" id="edit-due" style="cursor:pointer;">
+          </div>
+          <div class="field">
+            <label>狀態</label>
+            <select id="edit-status">
+              <option value="pending">預先登記</option>
+              <option value="wip">內部反修中</option>
+              <option value="done">已完成</option>
+              <option value="revision">外部反修中</option>
+              <option value="closed">結案</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg2">
+          <div class="field">
+            <label>等級</label>
+            <select id="edit-level"><option value="">— 選擇等級 —</option></select>
+          </div>
+          <div class="field">
+            <label>類別</label>
+            <div style="position:relative;">
+              <input type="text" id="edit-category-input" list="edit-category-list"
+                placeholder="輸入或搜尋類別…" autocomplete="off"
+                oninput="syncCatInput(this.value,'edit-category')">
+              <datalist id="edit-category-list"></datalist>
+              <input type="hidden" id="edit-category" value="">
+            </div>
+          </div>
+        </div>
+        <!-- 負責組長欄位已移除 -->
+        <!-- 工時面板 -->
+        <div class="hpanel">
+          <div class="hpanel-title">工時資訊</div>
+          <div class="hrow">
+            <div class="hcell"><label>製作時數(hr)</label><input type="number" id="edit-hours" min="0" step="0.5" oninput="updateEditTotal()"></div>
+            <div class="hcell"><label>內審反修(hr)</label><input type="number" id="edit-rev" min="0" step="0.5" oninput="updateEditTotal()"></div>
+            <div class="hcell"><label>溝通/檔(hr)</label><input type="number" id="edit-comm" min="0" step="0.5" oninput="updateEditTotal()"></div>
+          </div>
+          <div class="htotal">
+            <span class="htotal-label">總工時</span>
+            <span class="htotal-val" id="edit-total-display">0 hr</span>
+          </div>
+        </div>
+        <!-- DL Miss 已移除（改由績效 GD 延單數管理） -->
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);">
+          <input type="checkbox" id="edit-count-perf" style="width:auto;accent-color:var(--accent);" checked>
+          <div>
+            <div style="font-size:13px;color:var(--text);font-weight:500;">單數DC</div>
+            <div style="font-size:11px;color:var(--text3);">勾選後此工單不計入工單數統計（工時仍記錄）</div>
+          </div>
+        </div>
+        <div class="field">
+          <label>備註</label>
+          <textarea id="edit-note" rows="3" placeholder="補充說明…"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-danger" onclick="deleteMailFromEdit()">刪除此派單</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-secondary" onclick="closeEdit()">取消</button>
+      <button class="btn btn-primary" onclick="saveEdit()">💾 儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── PERF MODAL（工單績效指標填寫）─────────────── -->
+<div class="mo" id="perf-modal" onclick="if(event.target===this)closePerfMo()">
+  <div class="modal" style="max-width:680px;">
+    <div class="mhead">
+      <span class="mtitle" id="pmo-id">績效指標</span>
+      <button class="mclose" onclick="closePerfMo()">✕</button>
+    </div>
+    <div class="mbody">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;" id="pmo-subject-line"></div>
+
+      <!-- 內部指標 -->
+      <div class="pmo-section">
+        <div class="pmo-section-title">📋 內部指標</div>
+        <div class="pmo-grid">
+          <div class="pmo-field">
+            <label>D-2 標準</label>
+            <select id="pmo-d2">
+              <option value="">未填寫</option>
+              <option value="pass">✅ 達標</option>
+              <option value="fail">❌ 未達標</option>
+            </select>
+          </div>
+          <div class="pmo-field">
+            <label>內審次數</label>
+            <input type="number" id="pmo-inner-count" min="0" placeholder="0">
+          </div>
+          <div class="pmo-field">
+            <label>內審誤植數</label>
+            <input type="number" id="pmo-inner-miss" min="0" placeholder="0">
+          </div>
+          <div class="pmo-field">
+            <label>1次過關</label>
+            <select id="pmo-first-pass">
+              <option value="">未填寫</option>
+              <option value="yes">✅ 是</option>
+              <option value="no">❌ 否</option>
+            </select>
+          </div>
+        </div>
+        <div class="pmo-field" style="margin-top:10px;">
+          <label>內審備註</label>
+          <textarea id="pmo-inner-note" placeholder="說明內審問題…"></textarea>
+        </div>
+      </div>
+
+      <!-- 外部指標 -->
+      <div class="pmo-section">
+        <div class="pmo-section-title">🔍 外部指標</div>
+        <div class="pmo-grid">
+          <div class="pmo-field">
+            <label>PIC 校稿數</label>
+            <input type="number" id="pmo-pic-review" min="0" placeholder="0">
+          </div>
+          <div class="pmo-field">
+            <label>PIC 反修點數</label>
+            <input type="number" id="pmo-pic-rev" min="0" step="0.01" placeholder="0.5">
+          </div>
+          <div class="pmo-field">
+            <label>GD 失誤數</label>
+            <input type="number" id="pmo-gd-error" min="0" placeholder="0">
+          </div>
+          <div class="pmo-field">
+            <label>GD 延單數</label>
+            <input type="number" id="pmo-gd-extend" min="0" placeholder="0">
+          </div>
+        </div>
+        <div class="pmo-grid" style="margin-top:10px;">
+          <div class="pmo-field">
+            <label>GD 失誤備註</label>
+            <textarea id="pmo-gd-error-note" placeholder="說明失誤原因…"></textarea>
+          </div>
+          <div class="pmo-field">
+            <label>GD 延單備註</label>
+            <textarea id="pmo-gd-extend-note" placeholder="說明延單原因…"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-secondary" onclick="closePerfMo()">取消</button>
+      <button class="btn btn-primary" onclick="savePerfMo()">💾 儲存指標</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  Firebase 即時共編版 — 所有資料存於 Firebase，全裝置即時同步         ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+const ADMIN_PASSWORD = 'admin1234';
+
+// ── Firebase 設定 ──────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyDsmqGFLsTYPkvpN6-P8duHWibHujiQ3U0",
+  authDomain: "mail-test-7c8fa.firebaseapp.com",
+  databaseURL: "https://mail-test-7c8fa-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "mail-test-7c8fa",
+  storageBucket: "mail-test-7c8fa.firebasestorage.app",
+  messagingSenderId: "586861783031",
+  appId: "1:586861783031:web:2a9d36d10d712bd98db0f2"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ── 預設資料（Firebase 首次讀不到資料時套用）──────────
+const DEFAULT_LEADERS = [
+  { id:'A', name:'Gigi' },
+  { id:'B', name:'Linda' },
+  { id:'C', name:'Yoyo' },
+  { id:'D', name:'Vgtb' },
+  { id:'E', name:'傑瑞米' },
+  { id:'F', name:'Ellen' },
+  { id:'G', name:'Doris' },
+];
+const DEFAULT_DESIGNERS = [];
+const DEFAULT_PROJECTS  = [];
+
+// ── 本機狀態（從 Firebase 監聽更新）─────────────────
+let mails          = [];
+let leaders        = DEFAULT_LEADERS;
+let designers      = DEFAULT_DESIGNERS;
+let projects       = DEFAULT_PROJECTS;
+// designers_meta: { "設計師名": { leaderId: "A" } }
+let designers_meta = {};
+// 等級 & 類別清單（管理員可編輯）
+const DEFAULT_LEVELS = ['A+/全站', 'A+/SCS', 'B+/SCS', 'A+/SPX賣版', 'A/全站', 'C/直播', 'C/SPX', 'E/SPX', 'E/MKT', 'E/社群', 'E/CSR', 'E/HR', 'E/IP', 'E/蝦大', 'E/好惠買', 'E/SCS', 'F/', '其他/game', '其他/Circle'];
+const DEFAULT_CATEGORIES = ['MKT', 'SPX', 'CSR', 'IP', 'HR', 'OM', '蝦小編的店', 'Sea', 'SCS/蝦皮直營', '蝦大/線上', '蝦大/線下', '好惠買/線上', '好惠買/線下', 'JIT', 'ALL FMCG', 'HEALTH', 'HE', 'TKB', 'BEAUTY', 'HL', 'FB', 'PETS', 'ALL FS', 'WA', 'WACC', 'shoes', 'WB', 'MA', 'MBA', 'ALL EL', 'MG', '3C', 'NB', 'GAME', 'ALL LS', 'MO', 'LE', 'BOOKS', 'SO', 'TS', 'EE', 'CB', 'Cricle-FMCG-BEAUTY Shopee Premium', 'Cricle-FMCG-蝦皮超市', 'Cricle-FMCG-FB Coupang', 'Cricle-FMCG-TKB Coupang', 'Cricle-FMCG-TKB 蝦皮媽咪會員', 'Cricle-FMCG-HEALTH美妝保健館', 'Cricle-FMCG-HL 蝦皮家居L1 ', 'Cricle-FMCG-HL 寢具香氛館L2 ', 'Cricle-FMCG-HL 餐廚杯瓶館L2 ', 'Cricle-ALL LS-LE 文創+娛樂', 'Cricle-ALL LS-BOOKS 蝦皮書城', 'Cricle-ALL LS-T&S電子票券品牌館', 'Cricle-ALL LS-SO 戶外車用', 'Cricle-ALL LS-Shopee vita', 'Cricle-ALL EL-EL 3C家電館', 'Cricle-ALL EL-CB 海外購物節', 'Cricle-ALL EL-CB 品牌大店AD', 'Cricle-ALL EL-CB 正韓獨家品牌日', 'Cricle-MKT-蝦皮超便宜', 'Cricle-MKT-刷卡優惠 L1', 'Cricle-MKT-回饋攻略 L2', 'Cricle-MKT-蝦皮分潤', 'Cricle-MKT-蝦皮分潤EDM'];
+let mailLevels     = [];   // loaded from Firebase
+let mailCategories = [];   // loaded from Firebase
+// leaves: [{ id, person, start, end, type, note }]
+let leaves = [];
+
+// 身份（仍放 localStorage，屬於本機偏好）
+let curLeader = localStorage.getItem('curLeader') || null;
+let pendLeader = null, moMailId = null, perfMailId = null, leaveEditId = null;
+let lsS='', lsSt='', lsDes='', lsPF='';
+let perfPeriod = 'week';
+let weeklyPeriod = 'week';
+let leaveCalYear = new Date().getFullYear();
+let leaveCalMonth = new Date().getMonth();
+let activeWeeklyGroup = null;  // currently shown group id
+
+// Firebase 防迴圈 flag
+let _writing = { mails:false, leaders:false, designers:false, projects:false, designers_meta:false, leaves:false, mail_levels:false, mail_categories:false };
+
+const SL={pending:'預先登記',wip:'內部反修中',done:'已完成',revision:'外部反修中',closed:'結案'};
+const SB={pending:'badge-pending',wip:'badge-wip',done:'badge-done',revision:'badge-revision',closed:'badge-closed'};
+
+// ══ UTILS ════════════════════════════════════════════
+const toast   = msg=>{ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); };
+const bHtml   = s=>`<span class="badge ${SB[s]}">${SL[s]}</span>`;
+const dlH     = v=>v?'<span class="badge badge-miss">MISS</span>':'<span style="color:var(--text3);font-size:11px">—</span>';
+const pill    = (v,t)=>!v?'<span class="zp">0</span>':t==='e'?`<span class="ep">${v}</span>`:`<span class="rp">${v}</span>`;
+const isToday = s=>s&&s.startsWith(new Date().toISOString().slice(0,10));
+const pastDue = m=>m.due_date&&m.due_date<new Date().toISOString().slice(0,10)&&m.status!=='closed';
+const genId   = ()=>{ const d=new Date(),t=mails.filter(m=>m.created_at.startsWith(d.toISOString().slice(0,10))); return d.toISOString().slice(0,10).replace(/-/g,'')+'-'+String(t.length+1).padStart(3,'0'); };
+const lName   = id=>{ if(id==='__admin__')return'管理者'; const l=leaders.find(x=>x.id===id); return l?l.name:id||'—'; };
+const pBundle = name=>projects.find(p=>p.name===name)||null;
+const totalH  = m=>+(((m.hours||0)+(m.revHours||0)+(m.commHours||0)+(m.meetHours||0)).toFixed(2));
+const bundleTotal = p=>+(((p.hours||0)+(p.revHours||0)+(p.commHours||0)+(p.extRevHours||0)).toFixed(2));
+
+// ══ FIREBASE 讀寫 ═════════════════════════════════════
+// 寫入 Firebase（每個資料表單獨節點）
+let _skipNextDesMetaUpdate = false;  // 專門防止 designers_meta 寫入後立即觸發 listener
+
+function fbWrite(table, data) {
+  _writing[table] = true;
+  if (table === 'designers_meta') _skipNextDesMetaUpdate = true;
+  db.ref('tracker/' + table).set(data).then(() => {
+    setTimeout(() => { _writing[table] = false; }, 500);
+  }).catch(err => {
+    _writing[table] = false;
+    if (table === 'designers_meta') _skipNextDesMetaUpdate = false;
+    console.error('Firebase 寫入失敗:', err);
+    toast('⚠ 儲存失敗：' + err.message);
+  });
+}
+
+function saveMails()    { fbWrite('mails',          mails); }
+function saveL()        { fbWrite('leaders',        leaders); }
+function saveD()        { fbWrite('designers',      designers); }
+function saveP()        { fbWrite('projects',       projects); }
+function saveDesMeta(){
+  // Store as array (indexed by designers[]) to avoid Firebase key restrictions on # $ . etc.
+  const arr = designers.map(d => ({ leaderId: designers_meta[d]?.leaderId || '' }));
+  fbWrite('designers_meta', arr);
+}
+function saveLeaves()   { fbWrite('leaves', leaves); }
+function saveLevels()   { fbWrite('mail_levels', mailLevels); }
+function saveCategories(){ fbWrite('mail_categories', mailCategories); }
+
+// ══ FIREBASE 即時監聽 ══════════════════════════════════
+// 監聽 mails
+db.ref('tracker/mails').on('value', snap => {
+  if (_writing.mails) return;
+  const val = snap.val();
+  mails = val ? (Array.isArray(val) ? val : Object.values(val)) : [];
+  onMailsUpdated();
+});
+
+// 監聽 leaders
+db.ref('tracker/leaders').on('value', snap => {
+  if (_writing.leaders) return;
+  const val = snap.val();
+  if (val && Array.isArray(val) && val.length) {
+    leaders = val.filter(Boolean);
+  } else if (val && typeof val === 'object') {
+    leaders = Object.values(val).filter(Boolean);
+  } else {
+    leaders = [...DEFAULT_LEADERS];
+  }
+  if (!leaders.length) leaders = [...DEFAULT_LEADERS];
+  onLeadersUpdated();
+});
+
+// 監聽 designers
+db.ref('tracker/designers').on('value', snap => {
+  if (_writing.designers) return;
+  const val = snap.val();
+  designers = val && Array.isArray(val) ? val : DEFAULT_DESIGNERS;
+  onDesignersUpdated();
+});
+
+// 監聽 projects
+db.ref('tracker/projects').on('value', snap => {
+  if (_writing.projects) return;
+  const val = snap.val();
+  projects = val && Array.isArray(val) ? val.map(p=>({
+    defaultSubjects:[], extRevHours:0, meetHours:0, qty:0, level:'', group:'', pos:'', ...p
+  })) : DEFAULT_PROJECTS;
+  onProjectsUpdated();
+});
+
+// 監聽 leaves
+db.ref('tracker/leaves').on('value', snap => {
+  if (_writing.leaves) return;
+  const val = snap.val();
+  leaves = val ? (Array.isArray(val) ? val.filter(Boolean) : Object.values(val)) : [];
+  onLeavesUpdated();
+});
+
+// 監聽 designers_meta
+db.ref('tracker/designers_meta').on('value', snap => {
+  // 跳過自己寫入觸發的 callback，避免覆蓋設定頁中正在編輯的下拉選單
+  if (_skipNextDesMetaUpdate) {
+    _skipNextDesMetaUpdate = false;
+    return;
+  }
+  if (_writing.designers_meta) return;
+  const val = snap.val();
+  // Stored as array indexed by designers[]; rebuild into { name: {leaderId} } map
+  designers_meta = {};
+  if (Array.isArray(val)) {
+    val.forEach((entry, i) => {
+      if (designers[i] && entry?.leaderId) {
+        designers_meta[designers[i]] = { leaderId: entry.leaderId };
+      }
+    });
+  } else if (val && typeof val === 'object') {
+    // Legacy fallback: old format { name: {leaderId} }
+    designers_meta = val;
+  }
+  onDesMetaUpdated();
+});
+
+// 監聽 mail_levels
+db.ref('tracker/mail_levels').on('value', snap => {
+  if (_writing.mail_levels) return;
+  const val = snap.val();
+  mailLevels = (val && Array.isArray(val)) ? val : [...DEFAULT_LEVELS];
+  populateLevelCategorySelects();
+updateCatDatalist();
+});
+
+// 監聽 mail_categories
+db.ref('tracker/mail_categories').on('value', snap => {
+  if (_writing.mail_categories) return;
+  const val = snap.val();
+  mailCategories = (val && Array.isArray(val)) ? val : [...DEFAULT_CATEGORIES];
+  populateLevelCategorySelects();
+});
+
+// Firebase 連線狀態
+db.ref('.info/connected').on('value', snap => {
+  const connected = snap.val();
+  const dot   = document.getElementById('fb-dot');
+  const label = document.getElementById('fb-label');
+  if (!dot) return;
+  dot.className   = 'fb-dot ' + (connected ? 'connected' : 'error');
+  label.textContent = connected ? '即時同步中' : '連線中斷';
+});
+
+// ══ 資料更新回調 ══════════════════════════════════════
+function onMailsUpdated() {
+  updateWip();
+  renderToday();
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (ap === 'board')     renderKanban();
+  if (ap === 'list')      renderList();
+  if (ap === 'perf')      renderPerf();
+  if (ap === 'weekly')    renderWeekly();
+}
+
+function onLeadersUpdated() {
+  renderLoginBtns();
+  applyChip();
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (ap === 'settings') renderSettings();
+}
+
+function onDesignersUpdated() {
+  populateSelects();
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (ap === 'settings') renderSettings();
+}
+
+function onProjectsUpdated() {
+  populateSelects();
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (ap === 'bundle') renderBundlePage('');
+  if (ap === 'dispatch') {}  // selects already refreshed
+}
+
+function onDesMetaUpdated() {
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  // Do NOT re-render settings when user is actively editing — it would wipe their unsaved changes
+  // Settings page will read fresh data next time it's opened or after save
+  if (ap === 'perf')     renderPerf();
+  if (ap === 'weekly')   renderWeekly();
+}
+function onLeavesUpdated() {
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (ap === 'leave')    renderLeaveCalendar();
+  if (ap === 'weekly')   renderWeekly();
+}
+
+// ══ POPULATE SELECTS ═════════════════════════════════
+function populateSelects(){
+  const dOpts = designers.map(d=>`<option>${d}</option>`).join('');
+  ['f-designer','kanban-filter','list-df'].forEach(id=>{
+    const el = document.getElementById(id); if(!el) return;
+    const prev = el.value;
+    el.innerHTML = (id==='f-designer'?'<option value="">— 選擇設計師 —</option>':'<option value="">全部設計師</option>') + dOpts;
+    if(prev) el.value = prev;
+  });
+  // 專案：用 datalist 支援打字搜尋
+  const pList = document.getElementById('f-project-list');
+  if(pList){
+    pList.innerHTML = projects.map(p=>`<option value="${p.name}　${bundleTotal(p)}h/單" data-name="${p.name}">`).join('');
+  }
+}
+
+// 專案搜尋輸入處理
+function onProjInput(val){
+  // 嘗試比對 datalist 選項
+  const matched = projects.find(p => val.startsWith(p.name));
+  if(matched){
+    document.getElementById('f-project').value = matched.name;
+    pickProj(matched.name);
+  } else {
+    document.getElementById('f-project').value = '';
+  }
+}
+function onProjChange(val){
+  const matched = projects.find(p => val.startsWith(p.name) || val === p.name);
+  if(matched){
+    document.getElementById('f-project').value = matched.name;
+    pickProj(matched.name);
+  }
+}
+
+// 類別搜尋輸入處理（共用函式）
+function syncCatInput(val, hiddenId){
+  document.getElementById(hiddenId).value = val;
+}
+
+// 更新類別 datalist（dispatch 和 edit modal 共用）
+function updateCatDatalist(){
+  const cats = mailCategories.length ? mailCategories : DEFAULT_CATEGORIES;
+  const opts = cats.map(v=>`<option value="${v}">`).join('');
+  ['f-category-list','edit-category-list'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.innerHTML=opts;
+  });
+}
+
+// ══ LOGIN ════════════════════════════════════════════
+function renderLoginBtns(){
+  document.getElementById('leader-grid').innerHTML = leaders.map(l=>`
+    <button class="lbtn" onclick="selLeader('${l.id}',this)">
+      <div class="li">👤</div><div class="ln">${l.name}</div><div class="lr">LEADER-${l.id}</div>
+    </button>`).join('');
+  const rec = document.getElementById('emergency-recovery');
+  if(rec) rec.style.display = leaders.length===0 ? 'block' : 'none';
+}
+function emergencyRestoreLeaders(){
+  leaders = [...DEFAULT_LEADERS];
+  _writing.leaders = true;
+  db.ref('tracker/leaders').set(leaders).then(()=>{
+    _writing.leaders = false;
+    renderLoginBtns();
+    toast('✓ 預設組長資料已恢復');
+    setTimeout(()=>location.reload(),2000);
+  }).catch(e=>{ _writing.leaders=false; toast('⚠ '+e.message); });
+}
+function selLeader(id,btn){
+  document.querySelectorAll('.lbtn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  if(id==='__admin__'){pendLeader='__admin__';openPw();}
+  else{pendLeader=id;unlockLogin();}
+}
+function unlockLogin(){ const b=document.getElementById('login-confirm'); b.style.opacity='1'; b.style.pointerEvents='auto'; }
+function lockLogin()  { const b=document.getElementById('login-confirm'); b.style.opacity='.4'; b.style.pointerEvents='none'; }
+function openPw()     { document.getElementById('pw-input').value=''; document.getElementById('pw-err').textContent=''; document.getElementById('pwo').classList.add('open'); setTimeout(()=>document.getElementById('pw-input').focus(),80); }
+function cancelPw()   { document.getElementById('pwo').classList.remove('open'); document.querySelectorAll('.lbtn').forEach(b=>b.classList.remove('sel')); pendLeader=null; lockLogin(); }
+function submitPw()   { const v=document.getElementById('pw-input').value; if(v===ADMIN_PASSWORD){document.getElementById('pwo').classList.remove('open');unlockLogin();}else{document.getElementById('pw-err').textContent='密碼錯誤';document.getElementById('pw-input').value='';document.getElementById('pw-input').focus();} }
+function confirmLogin(){ if(!pendLeader)return; curLeader=pendLeader; localStorage.setItem('curLeader',curLeader); document.getElementById('ls').classList.add('hidden'); applyChip(); showAdminNav(); toast(curLeader==='__admin__'?'🛡️ 管理者模式':'歡迎，'+lName(curLeader)); }
+function applyChip()  { const c=document.getElementById('user-chip'),l=document.getElementById('chip-label'); if(!c)return; if(curLeader==='__admin__'){c.classList.add('admin');l.textContent='🛡️ 管理者';}else{c.classList.remove('admin');l.textContent=lName(curLeader)||'—';} }
+function showAdminNav(){ 
+  document.getElementById('nav-settings').classList.toggle('visible',curLeader==='__admin__'); 
+  document.getElementById('btn-save-bundle')?.classList.toggle('visible', curLeader==='__admin__');
+}
+function switchUser() { if(!confirm('切換身份？'))return; localStorage.removeItem('curLeader'); curLeader=pendLeader=null; lockLogin(); document.querySelectorAll('.lbtn').forEach(b=>b.classList.remove('sel')); document.getElementById('nav-settings').classList.remove('visible'); renderLoginBtns(); document.getElementById('ls').classList.remove('hidden'); }
+
+// ══ NAV ══════════════════════════════════════════════
+function goPage(p,btn){
+  document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(e=>e.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(p==='board')     renderKanban();
+  if(p==='list')      renderList();
+  if(p==='dispatch')  renderToday();
+  if(p==='settings')  renderSettings();
+  if(p==='bundle')    renderBundlePage('');
+  if(p==='perf')      renderPerf();
+  if(p==='weekly')    renderWeekly();
+  if(p==='leave')     { renderLeaveCalendar(); populateLeavePerson(); }
+  if(p==='monthsum')  { initMonthSumFilters(); }
+}
+
+// ══ PROJECT PICK ══════════════════════════════════════
+function pickProj(name){
+  if(!name) return;
+  const p = pBundle(name);
+  if(p){
+    document.getElementById('f-hours').value = p.hours||0;
+    document.getElementById('f-rev').value   = p.revHours||0;
+    document.getElementById('f-comm').value  = p.commHours||0;
+    // f-meet removed - meetHours calculated from perf
+    const tot = bundleTotal(p);
+    const monthly = tot*(p.qty||0);
+    document.getElementById('bundle-ref').textContent =
+      `標準包：製作${p.hours||0}h + 內審反修${p.revHours||0}h + 溝通${p.commHours||0}h = ${(p.hours||0)+(p.revHours||0)+(p.commHours||0)}h/單　每月${p.qty||0}單 × ${tot}h = ${monthly.toFixed(1)}h/月`;
+    document.getElementById('hours-panel').style.display='block';
+    updateTotalDisplay();
+  }
+}
+
+function updateTotalDisplay(){
+  const h=parseFloat(document.getElementById('f-hours').value)||0;
+  const r=parseFloat(document.getElementById('f-rev').value)||0;
+  const c=parseFloat(document.getElementById('f-comm').value)||0;
+  document.getElementById('f-total-display').textContent=(h+r+c).toFixed(1)+' hr';
+}
+['f-hours','f-rev','f-comm'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',updateTotalDisplay);
+});
+
+// ══ DISPATCH ══════════════════════════════════════════
+function clearForm(){
+  ['f-hours','f-rev','f-comm','f-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';}); 
+  document.getElementById('f-subject').value='';
+  document.getElementById('f-project').value='';
+  const fpi = document.getElementById('f-project-input'); if(fpi) fpi.value='';
+  const fci = document.getElementById('f-category-input'); if(fci) fci.value='';
+  document.getElementById('f-category').value='';
+  document.getElementById('f-designer').selectedIndex=0;
+  document.getElementById('hours-panel').style.display='none';
+  document.getElementById('f-total-display').textContent='0 hr';
+  document.getElementById('bundle-ref').textContent='';
+  const cp = document.getElementById('f-count-perf'); if(cp) cp.checked=false; // DC預設不勾（預設計入）
+  const fl = document.getElementById('f-level'); if(fl) fl.selectedIndex=0;
+  const fs = document.getElementById('f-status'); if(fs) fs.selectedIndex=0;
+  const fc = document.getElementById('f-category'); if(fc) fc.selectedIndex=0;
+}
+function submitDispatch(){
+  const subject  = document.getElementById('f-subject').value.trim();
+  const project  = document.getElementById('f-project').value || document.getElementById('f-project-input')?.value.split('　')[0].trim() || '';
+  const designer = document.getElementById('f-designer').value;
+  const due      = document.getElementById('f-due').value;
+  if(!subject||!project||!designer||!due){toast('⚠ 請填寫必填欄位');return;}
+  const h  = parseFloat(document.getElementById('f-hours').value)||0;
+  const r  = parseFloat(document.getElementById('f-rev').value)||0;
+  const c  = parseFloat(document.getElementById('f-comm').value)||0;
+  const mt = 0;
+
+  // ── 計算該設計師本週已累積工時（含本次新增）────────────────
+  const now = new Date();
+  const dow = now.getDay();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate()-(dow===0?6:dow-1)); weekStart.setHours(0,0,0,0);
+  const weekEnd   = new Date(weekStart); weekEnd.setDate(weekStart.getDate()+6); weekEnd.setHours(23,59,59,999);
+  const wkStr = weekStart.toISOString().slice(0,10);
+  const weStr = weekEnd.toISOString().slice(0,10);
+
+  const existingH = mails
+    .filter(m => m.designer===designer && (m.due_date||'')>=wkStr && (m.due_date||'')<=weStr)
+    .reduce((s,m)=>s+totalH(m), 0);
+  const thisH  = h + r + c;
+  const totalAfter = +(existingH + thisH).toFixed(1);
+
+  // ── 20H / 30H 警示 ──────────────────────────────────────────
+  if(totalAfter >= 30){
+    if(!confirm(`⚠️ 人力警示 — ${designer}\n\n本週工時將達 ${totalAfter}h（已超過 30H 上限）\n請確認人力配置是否合理。\n\n按「確定」仍繼續派單，按「取消」重新調整。`)){
+      return;
+    }
+  } else if(totalAfter >= 20){
+    if(!confirm(`🔔 人力提醒 — ${designer}\n\n本週工時將達 ${totalAfter}h（已超過 20H）\n請留意人力負荷，確認是否繼續派單。\n\n按「確定」繼續派單，按「取消」重新調整。`)){
+      return;
+    }
+  }
+
+  const mail = {
+    id:genId(), subject, project, designer, leader:curLeader||'—', due_date:due,
+    hours:h, revHours:r, commHours:c, meetHours:mt,
+    note:document.getElementById('f-note').value,
+    mail_level:    document.getElementById('f-level')?.value||'',
+    mail_category: document.getElementById('f-category')?.value || document.getElementById('f-category-input')?.value || '',
+    status:document.getElementById('f-status')?.value||'pending', revision_count:0, error_count:0, dl_miss:false,
+    count_perf: document.getElementById('f-count-perf').checked,
+    d2_pass:null, inner_count:0, inner_miss:0, first_pass:null,
+    gd_error:0, gd_extend:0, pic_review:0, pic_rev:0,
+    inner_note:'', gd_error_note:'', gd_extend_note:'',
+    created_at:new Date().toISOString()
+  };
+  mails.unshift(mail);
+  saveMails();
+  clearForm();
+  toast('✓ 派單成功：'+mail.id);
+}
+function renderToday(){
+  const tm = mails.filter(m=>isToday(m.created_at));
+  document.getElementById('today-count').textContent = tm.length;
+  const tb = document.getElementById('today-tbody');
+  tb.innerHTML = tm.length ? tm.map(m=>`<tr>
+    <td class="mid">${m.id}</td>
+    <td class="sc" style="cursor:pointer" onclick="openEdit('${m.id}')">${m.subject}</td>
+    <td>${m.project}</td><td>${m.designer}</td>
+    <td style="font-size:11px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.mail_level||'—'}</td>
+    <td style="font-size:11px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.mail_category||'—'}</td>
+    <td class="mid">${m.hours||0}</td><td class="mid">${m.revHours||0}</td><td class="mid">${m.commHours||0}</td><td class="mid">${m.meetHours||0}</td>
+    <td class="mid" style="color:var(--accent)">${totalH(m)}</td>
+    <td>${m.due_date}</td><td>${bHtml(m.status)}</td>
+    <td style="display:flex;gap:6px;"><button class="btn btn-secondary btn-sm" onclick="openEdit('${m.id}')">✏️ 編輯</button><button class="btn btn-danger btn-sm" onclick="deleteMail('${m.id}')">刪除</button></td>
+  </tr>`).join('') : '<tr><td colspan="12" class="empty">今日尚無派單</td></tr>';
+}
+
+// ══ KANBAN ════════════════════════════════════════════
+function renderKanban(){
+  const f = document.getElementById('kanban-filter').value;
+  const data = f ? mails.filter(m=>m.designer===f) : mails;
+  ['pending','wip','done','revision'].forEach(col=>{
+    const items = data.filter(m=>m.status===col);
+    document.getElementById('kc-'+col).textContent = items.length;
+    document.getElementById('k-'+col).innerHTML = items.length ? items.map(m=>{
+      const mine = isMyDes(m.designer);
+      return `<div class="kcard${mine?' my-team':''}" onclick="openEdit('${m.id}')">
+        <div class="kid">${m.id}</div>
+        <div class="ksub">${m.subject}</div>
+        <div class="kmeta">
+          <span class="dtag" style="${mine?'color:var(--accent);background:rgba(79,142,247,.15)':''}">${m.designer}</span>
+          <div style="display:flex;gap:6px;align-items:center;">
+            ${m.dl_miss?'<span class="miss-dot"></span>':''}
+            ${m.revision_count?`<span style="font-family:var(--mono);font-size:10px;color:var(--amber)">R${m.revision_count}</span>`:''}
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${totalH(m)}h</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('') : '<div style="padding:8px 4px;font-size:12px;color:var(--text3);text-align:center">—</div>';
+  });
+}
+
+// ══ LIST ══════════════════════════════════════════════
+function lsSearch(v){lsS=v;renderList();}
+function lsStatus(v){lsSt=v;renderList();}
+function lsDesigner(v){lsDes=v;renderList();}
+function lsPerfFilter(pf, el){
+  lsPF=pf;
+  document.querySelectorAll('#perf-filter-tags .filter-tag').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderList();
+}
+// 取得設計師所屬組別 id
+function desLeader(dName){ return designers_meta[dName]?.leaderId || null; }
+// 判斷是否為當前組長的組員
+function isMyDes(dName){
+  if(curLeader==='__admin__') return true;
+  return getDesLeaderId(dName) === curLeader;
+}
+
+function renderList(){
+  let d = [...mails];
+  if(lsS){const q=lsS.toLowerCase();d=d.filter(m=>m.subject.toLowerCase().includes(q)||m.id.includes(q));}
+  if(lsSt) d=d.filter(m=>m.status===lsSt);
+  if(lsDes) d=d.filter(m=>m.designer===lsDes);
+  // 績效快篩
+  if(lsPF==='gd_error')   d=d.filter(m=>(m.gd_error||0)>0);
+  if(lsPF==='gd_extend')  d=d.filter(m=>(m.gd_extend||0)>0);
+  if(lsPF==='inner_miss') d=d.filter(m=>(m.inner_miss||0)>0);
+  if(lsPF==='d2_miss')    d=d.filter(m=>m.d2_pass==='fail');
+  if(lsPF==='first_pass') d=d.filter(m=>m.first_pass==='yes');
+
+  const tb = document.getElementById('list-tbody');
+  const d2Icon = v => v==='pass'?'<span class="ind-ok">達標</span>':v==='fail'?'<span class="ind-bad">未達</span>':'<span class="ind-na">—</span>';
+  const fpIcon = v => v==='yes'?'<span class="ind-ok">✓</span>':v==='no'?'<span class="ind-bad">✗</span>':'<span class="ind-na">—</span>';
+  const numCell = v => v?`<span style="font-family:var(--mono);font-size:12px">${v}</span>`:`<span style="color:var(--text3);font-size:11px">—</span>`;
+  tb.innerHTML = d.length ? d.map(m=>{
+    const mine = isMyDes(m.designer);
+    const rowClass = mine ? 'list-my-row' : '';
+    // count_perf=true → DC（不計工單數）; false/undefined → 計入
+    const countIcon = m.count_perf === true
+      ? '<span style="color:var(--red);font-size:11px;font-family:var(--mono)" title="單數DC：不計入工單數">DC</span>'
+      : '<span style="color:var(--green);font-size:14px" title="計入工單數">✓</span>';
+    return `<tr class="${rowClass}">
+      <td style="text-align:center">${countIcon}</td>
+      <td class="mid">${m.id}</td>
+      <td class="sc" title="${m.subject}">${m.subject}</td>
+      <td>${m.project}</td>
+      <td><span style="${mine?'color:var(--accent);font-weight:500':''}">${m.designer}</span></td>
+      <td>${lName(m.leader)}</td>
+      <td style="${pastDue(m)?'color:var(--red)':''}">${m.due_date}</td>
+      <td>${bHtml(m.status)}</td>
+      <td>${d2Icon(m.d2_pass)}</td>
+      <td>${numCell(m.inner_miss)}</td>
+      <td>${numCell(m.inner_count)}</td>
+      <td>${fpIcon(m.first_pass)}</td>
+      <td>${m.gd_error?`<span class="ind-bad">${m.gd_error}</span>`:`<span class="ind-na">—</span>`}</td>
+      <td>${m.gd_extend?`<span class="rp">${m.gd_extend}</span>`:`<span class="ind-na">—</span>`}</td>
+      <td>${numCell(m.pic_review)}</td>
+      <td>${numCell(m.pic_rev)}</td>
+      <td class="mid" style="color:var(--accent)">${totalH(m)}</td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="openPerfMo('${m.id}')" title="填寫績效指標">📊 績效</button>
+        <button class="btn btn-secondary btn-sm" onclick="openEdit('${m.id}')">✏️ 編輯</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteMail('${m.id}')">刪</button>
+      </td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="18" class="empty">無符合資料</td></tr>';
+}
+
+function toggleCountPerf(id, val){
+  const m=mails.find(x=>x.id===id); if(!m)return;
+  m.count_perf=val; saveMails(); toast(val?'✓ 已納入績效計算':'✓ 已排除績效計算');
+}
+
+// ══ DASHBOARD ═════════════════════════════════════════
+function chPeriod(v){dashP=v;renderDashboard();}
+function getDash(){
+  const now=new Date();
+  return mails.filter(m=>{
+    if(dashP==='all')return true;
+    const d=new Date(m.created_at);
+    if(dashP==='week'){const w=new Date(now);w.setDate(now.getDate()-now.getDay());return d>=w;}
+    return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+  });
+}
+function renderDashboard(){
+  const data=getDash();
+  document.getElementById('d-total').textContent=data.length;
+  document.getElementById('d-hours').textContent=data.reduce((s,m)=>s+totalH(m),0).toFixed(1);
+  document.getElementById('d-miss').textContent=data.filter(m=>m.dl_miss).length;
+  document.getElementById('d-errors').textContent=data.reduce((s,m)=>s+m.error_count,0);
+  const hTypes=[{key:'hours',label:'製作',color:'var(--accent)'},{key:'revHours',label:'反修',color:'var(--amber)'},{key:'commHours',label:'溝通',color:'var(--green)'},{key:'meetHours',label:'會議',color:'var(--purple)'}];
+  const maxH=Math.max(1,...hTypes.map(t=>data.reduce((s,m)=>s+(m[t.key]||0),0)));
+  document.getElementById('hours-breakdown').innerHTML=hTypes.map(t=>{
+    const v=data.reduce((s,m)=>s+(m[t.key]||0),0);
+    const pct=Math.round(v/maxH*100);
+    return`<div class="bar-row"><span class="bar-name">${t.label}</span><div class="bar-track"><div class="bar-fill" style="width:${pct||2}%;background:${t.color}">${v>0?`<span>${v.toFixed(1)}h</span>`:''}</div></div></div>`;
+  }).join('');
+  const revMax=Math.max(1,...designers.map(d=>data.filter(m=>m.designer===d).reduce((s,m)=>s+m.revision_count,0)));
+  document.getElementById('revision-chart').innerHTML=designers.filter(d=>data.some(m=>m.designer===d)).map(d=>{
+    const items=data.filter(m=>m.designer===d);
+    const v=items.reduce((s,m)=>s+m.revision_count,0);
+    const pct=Math.round(v/revMax*100);
+    return`<div class="bar-row"><span class="bar-name">${d}</span><div class="bar-track"><div class="bar-fill" style="width:${pct||2}%;background:var(--amber)">${v?`<span>${v}</span>`:''}</div></div></div>`;
+  }).join('');
+  const projNames=[...new Set(data.map(m=>m.project))].sort();
+  document.getElementById('proj-hours-tbody').innerHTML=projNames.length?projNames.map(pn=>{
+    const items=data.filter(m=>m.project===pn);
+    const ah=items.reduce((s,m)=>s+(m.hours||0),0);
+    const ar=items.reduce((s,m)=>s+(m.revHours||0),0);
+    const ac=items.reduce((s,m)=>s+(m.commHours||0),0);
+    const am=items.reduce((s,m)=>s+(m.meetHours||0),0);
+    const atot=+(ah+ar+ac+am).toFixed(1);
+    const pb=pBundle(pn);
+    const std=pb?bundleTotal(pb):null;
+    const diff=std!==null?(atot/items.length-std).toFixed(2):null;
+    const diffColor=diff===null?'var(--text3)':parseFloat(diff)>0?'var(--red)':parseFloat(diff)<0?'var(--green)':'var(--text2)';
+    return`<tr><td>${pn}</td><td class="num">${items.length}</td><td class="num">${ah.toFixed(1)}</td><td class="num">${ar.toFixed(1)}</td><td class="num">${ac.toFixed(1)}</td><td class="num">${am.toFixed(1)}</td><td class="num" style="color:var(--accent)">${atot}</td><td class="std">${std!==null?std+'h':'—'}</td><td class="num" style="color:${diffColor}">${diff!==null?(parseFloat(diff)>0?'+':'')+diff+'h':'—'}</td></tr>`;
+  }).join(''):'<tr><td colspan="9" class="empty">無資料</td></tr>';
+  document.getElementById('designer-tbody').innerHTML=designers.filter(d=>data.some(m=>m.designer===d)).map(d=>{
+    const items=data.filter(m=>m.designer===d);
+    const th=items.reduce((s,m)=>s+totalH(m),0);
+    const rev=items.reduce((s,m)=>s+m.revision_count,0);
+    const err=items.reduce((s,m)=>s+m.error_count,0);
+    const dl=items.filter(m=>m.dl_miss).length;
+    const cl=items.filter(m=>m.status==='closed').length;
+    return`<tr><td><strong>${d}</strong></td><td>${items.length}</td><td>${cl}</td><td style="font-family:var(--mono);font-size:12px;color:var(--accent)">${th.toFixed(1)}</td><td>${pill(rev,'r')}</td><td>${pill(err,'e')}</td><td>${dl?`<span class="ep">${dl}</span>`:'<span class="zp">0</span>'}</td><td style="font-family:var(--mono);font-size:12px">${items.length?Math.round(rev/items.length*100)+'%':'—'}</td></tr>`;
+  }).join('');
+}
+
+// ══ MAIL MODAL ════════════════════════════════════════
+function openMo(id){
+  const m=mails.find(x=>x.id===id); if(!m)return; moMailId=id;
+  const isAdmin=curLeader==='__admin__';
+  const lOpts=leaders.map(l=>`<option value="${l.id}"${m.leader===l.id?'selected':''}>${l.name}</option>`).join('');
+  const leaderField=isAdmin
+    ?`<div class="df"><div class="dl">負責組長 <span class="ab">🛡️ 可編輯</span></div><select id="mo-leader" style="margin-top:2px">${lOpts}</select></div>`
+    :`<div class="df"><div class="dl">負責組長</div><div class="lro"><span style="opacity:.5;font-size:11px">🔒</span>${lName(m.leader)}</div></div>`;
+  document.getElementById('mo-id').innerHTML=id+(isAdmin?' <span class="ab">🛡️</span>':'');
+  document.getElementById('mo-detail').innerHTML=`
+    <div class="df"><div class="dl">主旨</div><div class="dv">${m.subject}</div></div>
+    <div class="df"><div class="dl">專案</div><div class="dv">${m.project}</div></div>
+    <div class="df"><div class="dl">設計師</div><div class="dv">${m.designer}</div></div>
+    ${leaderField}
+    <div class="df"><div class="dl">截止日</div><div class="dv" style="${pastDue(m)?'color:var(--red)':''}">${m.due_date}${pastDue(m)?' ⚠':''}</div></div>
+    <div class="df"><div class="dl">建立時間</div><div class="dv" style="font-size:12px">${new Date(m.created_at).toLocaleString('zh-TW')}</div></div>`;
+  document.getElementById('mo-hours').innerHTML=[
+    {label:'製作',val:m.hours||0,color:''},{label:'反修',val:m.revHours||0,color:'color:var(--amber)'},
+    {label:'溝通',val:m.commHours||0,color:'color:var(--green)'},{label:'會議',val:m.meetHours||0,color:'color:var(--purple)'},
+    {label:'總工時',val:totalH(m),color:'color:var(--accent)'}
+  ].map(x=>`<div style="text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:4px">${x.label}</div><div style="font-size:16px;font-weight:500;${x.color}">${typeof x.val==='number'?x.val.toFixed(1):x.val}</div></div>`).join('');
+  document.getElementById('mo-status').value=m.status;
+  document.getElementById('mo-dl').checked=m.dl_miss;
+  document.getElementById('mo-note').value=m.note||'';
+  document.getElementById('mail-modal').classList.add('open');
+}
+function closeMo(){document.getElementById('mail-modal').classList.remove('open');moMailId=null;}
+function deleteMail(id){
+  const m=mails.find(x=>x.id===id);
+  if(!m)return;
+  if(!confirm(`確定刪除「${m.subject}」？`))return;
+  mails=mails.filter(x=>x.id!==id);
+  saveMails();
+  closeMo();
+  toast('✓ 已刪除');
+}
+
+function saveMo(){
+  const m=mails.find(x=>x.id===moMailId);if(!m)return;
+  m.status=document.getElementById('mo-status').value;
+  m.dl_miss=document.getElementById('mo-dl').checked;
+  m.note=document.getElementById('mo-note').value;
+  if(curLeader==='__admin__'){const s=document.getElementById('mo-leader');if(s)m.leader=s.value;}
+  saveMails();
+  closeMo();
+  toast('✓ 已更新 '+moMailId);
+}
+// ══ PERF MODAL ══════════════════════════════════════════
+function openPerfMo(id){
+  const m=mails.find(x=>x.id===id); if(!m) return; perfMailId=id;
+  document.getElementById('pmo-id').textContent='📊 績效指標 — '+id;
+  document.getElementById('pmo-subject-line').textContent=m.subject+'　|'+m.designer+'　|'+m.project;
+
+  // 如果是DC工單，鎖定所有輸入並提示
+  const isDCMail = m.count_perf === true;
+  const pmoBody  = document.querySelector('#perf-modal .mbody');
+  let dcWarning  = document.getElementById('pmo-dc-warning');
+  if(!dcWarning){
+    dcWarning = document.createElement('div');
+    dcWarning.id = 'pmo-dc-warning';
+    dcWarning.style.cssText = 'background:rgba(242,95,92,.12);border:1px solid rgba(242,95,92,.3);border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--red);display:none;';
+    dcWarning.innerHTML = '⚠ 此工單已設為「單數DC」（不計入工單數）<br><span style="font-size:12px;color:var(--text2)">績效指標請至原始計入工單上登記，避免數據錯誤。如需修改DC狀態，請至清單頁點「編輯」取消單數DC。</span>';
+    pmoBody && pmoBody.insertBefore(dcWarning, pmoBody.firstChild);
+  }
+  dcWarning.style.display = isDCMail ? 'block' : 'none';
+  // Lock/unlock all inputs in perf modal
+  const perfInputs = document.querySelectorAll('#perf-modal input, #perf-modal select, #perf-modal textarea');
+  perfInputs.forEach(el=>{ el.disabled = isDCMail; });
+  const saveBtn = document.querySelector('#perf-modal .btn-primary');
+  if(saveBtn){ saveBtn.disabled = isDCMail; saveBtn.style.opacity = isDCMail ? '.4' : '1'; }
+  document.getElementById('pmo-d2').value           = m.d2_pass||''
+  document.getElementById('pmo-inner-count').value   = m.inner_count||0;
+  document.getElementById('pmo-inner-miss').value    = m.inner_miss||0;
+  document.getElementById('pmo-first-pass').value    = m.first_pass||'';
+  document.getElementById('pmo-pic-review').value    = m.pic_review||0;
+  document.getElementById('pmo-pic-rev').value       = m.pic_rev||0;
+  document.getElementById('pmo-gd-error').value      = m.gd_error||0;
+  document.getElementById('pmo-gd-extend').value     = m.gd_extend||0;
+  document.getElementById('pmo-inner-note').value    = m.inner_note||'';
+  document.getElementById('pmo-gd-error-note').value = m.gd_error_note||'';
+  document.getElementById('pmo-gd-extend-note').value= m.gd_extend_note||'';
+  document.getElementById('perf-modal').classList.add('open');
+}
+function closePerfMo(){ document.getElementById('perf-modal').classList.remove('open'); perfMailId=null; }
+function savePerfMo(){
+  const m=mails.find(x=>x.id===perfMailId); if(!m) return;
+  m.d2_pass       = document.getElementById('pmo-d2').value||null;
+  m.inner_miss    = parseInt(document.getElementById('pmo-inner-miss').value)||0;
+  m.first_pass    = document.getElementById('pmo-first-pass').value||null;
+  m.gd_error      = parseInt(document.getElementById('pmo-gd-error').value)||0;
+  m.gd_extend     = parseInt(document.getElementById('pmo-gd-extend').value)||0;
+  m.inner_note    = document.getElementById('pmo-inner-note').value;
+  m.gd_error_note = document.getElementById('pmo-gd-error-note').value;
+  m.gd_extend_note= document.getElementById('pmo-gd-extend-note').value;
+
+  // 內審次數 → 自動計算 revHours（內審反修工時）
+  // 規則：內審次數 × 原始 revHours/次（用派單時的 revHours 為基準1次）
+  const innerCount = parseInt(document.getElementById('pmo-inner-count').value)||0;
+  m.inner_count = innerCount;
+  // revHours = 原始每次反修時數 × max(inner_count,1)
+  // 原始每次反修時數從專案標準包取，若沒有則用既有 revHours 保留
+  const proj = pBundle(m.project);
+  const baseRevH = proj ? (proj.revHours||0) : (m._base_revHours || m.revHours || 0);
+  if(!m._base_revHours && proj) m._base_revHours = proj.revHours||0; // 記錄基準
+  m.revHours = +(baseRevH * Math.max(innerCount, 1)).toFixed(2);
+
+  // PIC 校稿數 & 反修點數 → 自動計算 meetHours（外部反修工時）
+  // 規則：meetHours = pic_rev × max(pic_review, 1)
+  const picReview = parseInt(document.getElementById('pmo-pic-review').value)||0;
+  const picRev    = parseFloat(document.getElementById('pmo-pic-rev').value)||0;
+  m.pic_review = picReview;
+  m.pic_rev    = picRev;  // stored as float
+  m.meetHours  = +(picRev * Math.max(picReview, 1)).toFixed(2);
+
+  saveMails(); closePerfMo();
+  toast('✓ 績效指標已儲存：'+perfMailId+'（內審反修: '+m.revHours+'h, 外部反修: '+m.meetHours+'h）');
+}
+
+// ══ PERFORMANCE BOARD ════════════════════════════════════
+function setPerfPeriod(p, btn){
+  perfPeriod=p;
+  document.querySelectorAll('.period-tab').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const cr=document.getElementById('perf-custom-range');
+  if(cr) cr.style.display = p==='custom'?'flex':'none';
+  if(p!=='custom') renderPerf();
+}
+
+function getPerfDateRange(){
+  const now=new Date();
+  if(perfPeriod==='week'){
+    const day=now.getDay(); const mon=new Date(now); mon.setDate(now.getDate()-(day===0?6:day-1));
+    const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+    return{from:mon.toISOString().slice(0,10), to:sun.toISOString().slice(0,10)};
+  }
+  if(perfPeriod==='month'){
+    return{from:`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`,
+           to:new Date(now.getFullYear(),now.getMonth()+1,0).toISOString().slice(0,10)};
+  }
+  if(perfPeriod==='year'){
+    return{from:`${now.getFullYear()}-01-01`, to:`${now.getFullYear()}-12-31`};
+  }
+  // custom
+  return{from:document.getElementById('perf-from')?.value||''
+         ,to:document.getElementById('perf-to')?.value||''};
+}
+
+function getPerfData(){
+  const{from,to}=getPerfDateRange();
+  let data=mails.filter(m=>{
+    // 用 due_date（預計完成日）過濾，和週報一致
+    const d = m.due_date || m.created_at?.slice(0,10) || '';
+    return (!from||d>=from) && (!to||d<=to);
+  });
+  // 組長只能看自己組員
+  if(curLeader!=='__admin__') data=data.filter(m=>getDesLeaderId(m.designer)===curLeader);
+  // 績效看板設計師篩選
+  const df=document.getElementById('perf-des-filter')?.value;
+  if(df) data=data.filter(m=>m.designer===df);
+  const gf=document.getElementById('perf-group-filter')?.value;
+  if(gf) data=data.filter(m=>getDesLeaderId(m.designer)===gf);
+  return data;
+}
+
+function onPerfGroupChange(gId){
+  // 選了組長後，設計師下拉自動顯示該組員（也保留「全部設計師」）
+  const pdes=document.getElementById('perf-des-filter');
+  if(pdes){
+    const desList = gId
+      ? designers.filter(d=>getDesLeaderId(d)===gId)
+      : (curLeader==='__admin__' ? designers : designers.filter(d=>getDesLeaderId(d)===curLeader));
+    pdes.innerHTML='<option value="">全部設計師</option>'+desList.map(d=>`<option>${d}</option>`).join('');
+    pdes.value=''; // reset to show all of this group
+  }
+  renderPerf();
+}
+
+function renderPerf(){
+  const data=getPerfData();
+  const{from,to}=getPerfDateRange();
+  const scopeLabel=document.getElementById('perf-scope-label');
+  if(scopeLabel){
+    const pMap={week:'本週',month:'本月',year:'本年',custom:'自訂'};
+    scopeLabel.textContent=`統計範圍：${pMap[perfPeriod]||''} ${from} ～ ${to}`;
+  }
+
+  // 更新績效篩選設計師下拉（依目前選的組別過濾）
+  const pdes=document.getElementById('perf-des-filter');
+  const pgf=document.getElementById('perf-group-filter');
+  const selectedGroup = pgf?.value || '';
+  if(pdes && !pdes._userEditing){
+    const prev=pdes.value;
+    const desList = selectedGroup
+      ? designers.filter(d=>getDesLeaderId(d)===selectedGroup)
+      : (curLeader==='__admin__' ? designers : designers.filter(d=>getDesLeaderId(d)===curLeader));
+    pdes.innerHTML='<option value="">全部設計師</option>'+desList.map(d=>`<option>${d}</option>`).join('');
+    if(desList.includes(prev)) pdes.value=prev; // restore if still in list
+  }
+  // 管理員顯示組別篩選
+  if(pgf){
+    if(curLeader==='__admin__'){
+      pgf.style.display='';
+      const prev=pgf.value;
+      pgf.innerHTML='<option value="">全部組別</option>'+leaders.map(l=>`<option value="${l.id}">${l.name}</option>`).join('');
+      pgf.value=prev;
+    } else pgf.style.display='none';
+  }
+
+  // 按設計師聚合
+  const desList=curLeader==='__admin__'?[...new Set(data.map(m=>m.designer))].sort()
+    :designers.filter(d=>getDesLeaderId(d)===curLeader);
+
+  const rows=desList.map(d=>{
+    const items    = data.filter(m=>m.designer===d);              // 全部工單（含DC）
+    const nodc     = items.filter(m=>m.count_perf!==true);        // 非DC工單（計入工單數）
+    const cnt      = nodc.length;                                  // 工單數 = 非DC
+    const hours    = items.reduce((s,m)=>s+totalH(m),0);          // 工時：含DC
+    const d2pass   = nodc.filter(m=>m.d2_pass==='pass').length;
+    const gdErr    = nodc.reduce((s,m)=>s+(m.gd_error||0),0);
+    const gdExt    = nodc.reduce((s,m)=>s+(m.gd_extend||0),0);
+    const innerRev = nodc.filter(m=>(m.inner_count||0)>=2).length;
+    const innerMiss= nodc.reduce((s,m)=>s+(m.inner_miss||0),0);
+    const fp       = nodc.filter(m=>m.first_pass==='yes').length;
+    const picR     = nodc.reduce((s,m)=>s+(m.pic_review||0),0);
+    const picRev   = nodc.reduce((s,m)=>s+(m.pic_rev||0),0);
+    const pct      = n=>cnt?Math.round(n/cnt*100)+'%':'—';
+    const leaderName=lName(getDesLeaderId(d));
+    const mine=isMyDes(d);
+    return{d,cnt,hours,d2pass,gdErr,gdExt,innerRev,innerMiss,fp,picR,picRev,pct,leaderName,mine,items,nodc};
+  });
+
+  // KPI cards — 全體彙整
+  const totCnt=rows.reduce((s,r)=>s+r.cnt,0);
+  const totHours=rows.reduce((s,r)=>s+r.hours,0);
+  const totGdErr=rows.reduce((s,r)=>s+r.gdErr,0);
+  const totFP=rows.reduce((s,r)=>s+r.fp,0);
+  const totD2=rows.reduce((s,r)=>s+r.d2pass,0);
+  const totInner=rows.reduce((s,r)=>s+r.innerRev,0);
+  const kpiEl=document.getElementById('perf-kpi');
+  const totCntDC = rows.reduce((s,r)=>s+r.items.filter(m=>m.count_perf===true).length,0);
+  if(kpiEl) kpiEl.innerHTML=[
+    {label:'工單數',val:totCnt,sub:`排除DC ${totCntDC}單`,color:'sv-blue'},
+    {label:'總工時（含DC）',val:totHours.toFixed(1)+'h',sub:'工時含DC工單',color:'sv-green'},
+    {label:'GD失誤率',val:totCnt?Math.round(totGdErr/totCnt*100)+'%':'—',sub:`失誤${totGdErr}次`,color:totGdErr?'sv-red':'sv-green'},
+    {label:'1次過關率',val:totCnt?Math.round(totFP/totCnt*100)+'%':'—',sub:`共${totFP}單`,color:'sv-purple'},
+    {label:'D-2達標率',val:totCnt?Math.round(totD2/totCnt*100)+'%':'—',sub:`達標${totD2}單`,color:'sv-blue'},
+    {label:'內審率',val:totCnt?Math.round(totInner/totCnt*100)+'%':'—',sub:`≥2修改${totInner}單`,color:'sv-amber'},
+    {label:'設計師數',val:desList.length,sub:'有工單',color:'sv-blue'},
+    {label:'組別數',val:[...new Set(desList.map(d=>getDesLeaderId(d)))].filter(Boolean).length,sub:'',color:'sv-purple'},
+  ].map(x=>`<div class="perf-card"><div class="perf-label">${x.label}</div><div class="perf-val ${x.color}">${x.val}</div><div class="perf-sub">${x.sub}</div></div>`).join('');
+
+  // 大表
+  const tbEl=document.getElementById('perf-tbody');
+  if(tbEl) tbEl.innerHTML=rows.length?rows.map((r,ri)=>{
+    const dcCount = r.items.length - r.cnt;
+    const detailRows = r.items.map(m=>{
+      const mCnt = r.nodc.length || 1;
+      const isDCm = m.count_perf===true;
+      const d2Icon = m.d2_pass==='pass'?'<span class="ind-ok">達標</span>':m.d2_pass==='fail'?'<span class="ind-bad">未達</span>':'<span class="ind-na">—</span>';
+      const fpIcon = m.first_pass==='yes'?'<span class="ind-ok">✓</span>':m.first_pass==='no'?'<span class="ind-bad">✗</span>':'<span class="ind-na">—</span>';
+      return `<tr style="background:${isDCm?'rgba(242,95,92,.04)':'var(--bg)'};border-top:1px solid var(--border);">
+        <td style="padding-left:24px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px" title="${m.subject}">
+          ${isDCm?'<span class="ind-bad" style="margin-right:4px">DC</span>':''}<span>${m.subject}</span>
+        </td>
+        <td style="font-family:var(--mono);font-size:12px;text-align:right">${totalH(m).toFixed(1)}h</td>
+        <td style="text-align:center">${d2Icon}</td>
+        <td style="font-family:var(--mono);font-size:12px;text-align:center">${m.gd_error||0}</td>
+        <td style="font-family:var(--mono);font-size:12px;text-align:center">${m.gd_extend||0}</td>
+        <td style="font-size:11px;text-align:center">${(m.inner_count||0)>=2?'<span class="rp">內審'+(m.inner_count||0)+'次</span>':'<span class="ind-na">'+(m.inner_count||0)+'次</span>'}</td>
+        <td style="font-family:var(--mono);font-size:12px;text-align:center">${m.inner_miss||0}</td>
+        <td style="text-align:center">${fpIcon}</td>
+        <td style="font-family:var(--mono);font-size:12px;text-align:center">${m.pic_review||0}</td>
+        <td style="font-family:var(--mono);font-size:12px;text-align:center">${(m.pic_rev||0).toFixed?+(m.pic_rev||0).toFixed(2):m.pic_rev||0}</td>
+        <td style="font-family:var(--mono);font-size:11px;text-align:center;white-space:nowrap">${m.due_date||'—'}</td>
+      </tr>`;
+    }).join('');
+    return `
+    <tr class="${r.mine?'my-group':''}" style="cursor:pointer;" onclick="togglePerfDes(${ri})"
+        onmouseover="this.style.background='rgba(79,142,247,.05)'" onmouseout="this.style.background=''">
+      <td><strong style="color:var(--accent)">${r.d}</strong> <span style="font-size:10px;color:var(--text3)" id="perf-expand-${ri}">▶ 展開</span></td>
+      <td style="font-size:11px;color:var(--text3)">${r.leaderName}</td>
+      <td class="mono">${r.cnt}<span style="font-size:9px;color:var(--text3)">${dcCount?` (+${dcCount}DC)`:''}</span></td>
+      <td class="mono">${r.hours.toFixed(1)}</td>
+      <td class="mono">${r.d2pass} <span class="perf-rate ${r.cnt&&r.d2pass/r.cnt>=0.8?'good':'neutral'}">${r.pct(r.d2pass)}</span></td>
+      <td class="mono">${r.gdErr} <span class="perf-rate ${r.gdErr?'bad':'good'}">${r.pct(r.gdErr)}</span></td>
+      <td class="mono">${r.gdExt} <span class="perf-rate neutral">${r.pct(r.gdExt)}</span></td>
+      <td class="mono">${r.innerRev} <span class="perf-rate neutral">${r.pct(r.innerRev)}</span></td>
+      <td class="mono">${r.innerMiss} <span class="perf-rate ${r.innerMiss?'bad':'good'}">${r.cnt?Math.round(r.innerMiss/r.cnt*100)+'%':'—'}</span></td>
+      <td class="mono">${r.fp} <span class="perf-rate ${r.cnt&&r.fp/r.cnt>=0.8?'good':'neutral'}">${r.pct(r.fp)}</span></td>
+      <td class="mono">${r.picR}</td>
+      <td class="mono">${r.picRev.toFixed?r.picRev.toFixed(2):r.picRev}</td>
+    </tr>
+    <tr id="perf-detail-${ri}" style="display:none;">
+      <td colspan="12" style="padding:0;background:var(--bg);">
+        <table style="width:100%;border-collapse:collapse;font-size:11px;">
+          <tr style="background:var(--surface2);">
+            <th style="padding:6px 24px;font-family:var(--mono);font-size:10px;color:var(--text3);text-align:left;min-width:180px">工單名稱</th>
+            <th style="text-align:right;white-space:nowrap">工時h</th>
+            <th style="text-align:center;white-space:nowrap">D-2達標</th>
+            <th style="text-align:center;white-space:nowrap">GD失誤</th>
+            <th style="text-align:center;white-space:nowrap">GD延單</th>
+            <th style="text-align:center;white-space:nowrap">內審次數</th>
+            <th style="text-align:center;white-space:nowrap">誤植數</th>
+            <th style="text-align:center;white-space:nowrap">1次過關</th>
+            <th style="text-align:center;white-space:nowrap">PIC校稿數</th>
+            <th style="text-align:center;white-space:nowrap">PIC反修點數</th>
+            <th style="text-align:center;white-space:nowrap">預計完成日</th>
+          </tr>
+          ${detailRows}
+        </table>
+      </td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="12" class="empty">本期無資料</td></tr>';
+
+  // 長條圖
+  function renderPerfBar(elId, rowsFn, colorFn){
+    const el=document.getElementById(elId); if(!el) return;
+    const sorted=rowsFn(rows).filter(x=>x.cnt>0);
+    const maxVal=Math.max(1,...sorted.map(x=>x.rate));
+    el.innerHTML=sorted.map(x=>`
+      <div class="bar-row">
+        <span class="bar-name">${x.name}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.max(2,Math.round(x.rate/maxVal*100))}%;background:${colorFn(x.rate)}">
+          ${x.rate>0?`<span>${x.rateStr}</span>`:''}</div></div>
+      </div>`).join('');
+  }
+  renderPerfBar('perf-bar-gd-error',
+    rs=>rs.map(r=>({name:r.d,cnt:r.cnt,rate:r.cnt?r.gdErr/r.cnt*100:0,rateStr:r.pct(r.gdErr)})).sort((a,b)=>b.rate-a.rate),
+    v=>v>20?'var(--red)':v>10?'var(--amber)':'var(--green)');
+  renderPerfBar('perf-bar-first-pass',
+    rs=>rs.map(r=>({name:r.d,cnt:r.cnt,rate:r.cnt?r.fp/r.cnt*100:0,rateStr:r.pct(r.fp)})).sort((a,b)=>b.rate-a.rate),
+    v=>v>=80?'var(--green)':v>=60?'var(--amber)':'var(--red)');
+  renderPerfBar('perf-bar-inner',
+    rs=>rs.map(r=>({name:r.d,cnt:r.cnt,rate:r.cnt?r.innerRev/r.cnt*100:0,rateStr:r.pct(r.innerRev)})).sort((a,b)=>b.rate-a.rate),
+    v=>v>30?'var(--red)':v>15?'var(--amber)':'var(--green)');
+  renderPerfBar('perf-bar-d2',
+    rs=>rs.map(r=>({name:r.d,cnt:r.cnt,rate:r.cnt?r.d2pass/r.cnt*100:0,rateStr:r.pct(r.d2pass)})).sort((a,b)=>b.rate-a.rate),
+    v=>v>=90?'var(--green)':v>=70?'var(--amber)':'var(--red)');
+}
+
+function togglePerfDes(ri){
+  const detail = document.getElementById('perf-detail-'+ri);
+  const icon   = document.getElementById('perf-expand-'+ri);
+  if(!detail) return;
+  const isOpen = detail.style.display !== 'none';
+  detail.style.display = isOpen ? 'none' : 'table-row';
+  if(icon) icon.textContent = isOpen ? '▶ 展開' : '▼ 收合';
+}
+
+function updateWip(){document.getElementById('wip-count').textContent=mails.filter(m=>m.status==='wip').length;}
+
+// ══ EDIT MODAL（編輯派單完整欄位）════════════════════════
+let editMailId = null;
+
+function openEdit(id){
+  const m = mails.find(x=>x.id===id); if(!m) return;
+  editMailId = id;
+
+  // 填充下拉選單
+  const dOpts = designers.map(d=>`<option${d===m.designer?' selected':''}>${d}</option>`).join('');
+  document.getElementById('edit-designer').innerHTML = '<option value="">— 選擇設計師 —</option>' + dOpts;
+
+  const pOpts = projects.map(p=>`<option value="${p.name}"${p.name===m.project?' selected':''}>${p.name}　${bundleTotal(p)}h/單</option>`).join('');
+  document.getElementById('edit-project').innerHTML = '<option value="">— 選擇專案 —</option>' + pOpts;
+
+  // 填充等級/類別（先重建選項再設值）
+  const lvls = mailLevels.length ? mailLevels : DEFAULT_LEVELS;
+  const cats = mailCategories.length ? mailCategories : DEFAULT_CATEGORIES;
+  document.getElementById('edit-level').innerHTML =
+    '<option value="">— 選擇等級 —</option>' + lvls.map(v=>`<option value="${v}">${v}</option>`).join('');
+  document.getElementById('edit-category').innerHTML =
+    '<option value="">— 選擇類別 —</option>' + cats.map(v=>`<option value="${v}">${v}</option>`).join('');
+  // 設定目前值
+  document.getElementById('edit-level').value    = m.mail_level    || '';
+  document.getElementById('edit-category').value = m.mail_category || '';
+  const ecInput = document.getElementById('edit-category-input');
+  if(ecInput) ecInput.value = m.mail_category || '';
+
+  // 填充其他欄位值
+  document.getElementById('edit-mo-id').textContent  = '✏️ 編輯派單 ' + id;
+  document.getElementById('edit-subject').value      = m.subject;
+  document.getElementById('edit-due').value          = m.due_date;
+  document.getElementById('edit-status').value       = m.status;
+  document.getElementById('edit-hours').value        = m.hours||0;
+  document.getElementById('edit-rev').value          = m.revHours||0;
+  document.getElementById('edit-comm').value         = m.commHours||0;
+  // edit-meet removed
+  document.getElementById('edit-note').value         = m.note||'';
+  const cpEl = document.getElementById('edit-count-perf');
+  if(cpEl) cpEl.checked = m.count_perf === true; // true=DC
+  updateEditTotal();
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEdit(){
+  document.getElementById('edit-modal').classList.remove('open');
+  editMailId = null;
+}
+
+function updateEditTotal(){
+  const h = parseFloat(document.getElementById('edit-hours').value)||0;
+  const r = parseFloat(document.getElementById('edit-rev').value)||0;
+  const c = parseFloat(document.getElementById('edit-comm').value)||0;
+  document.getElementById('edit-total-display').textContent = (h+r+c).toFixed(1)+' hr';
+}
+
+function editPickProj(name){
+  if(!name) return;
+  const p = pBundle(name);
+  if(p){
+    document.getElementById('edit-hours').value = p.hours||0;
+    document.getElementById('edit-rev').value   = p.revHours||0;
+    document.getElementById('edit-comm').value  = p.commHours||0;
+    // edit-meet removed - meetHours calculated from perf
+    updateEditTotal();
+  }
+}
+
+function saveEdit(){
+  const m = mails.find(x=>x.id===editMailId); if(!m) return;
+  const subject  = document.getElementById('edit-subject').value.trim();
+  const project  = document.getElementById('edit-project').value;
+  const designer = document.getElementById('edit-designer').value;
+  const due      = document.getElementById('edit-due').value;
+  if(!subject||!project||!designer||!due){ toast('⚠ 請填寫必填欄位'); return; }
+  m.subject   = subject;
+  m.project   = project;
+  m.designer  = designer;
+  m.due_date  = due;
+  m.status    = document.getElementById('edit-status').value;
+  m.hours     = parseFloat(document.getElementById('edit-hours').value)||0;
+  m.revHours  = parseFloat(document.getElementById('edit-rev').value)||0;
+  m.commHours = parseFloat(document.getElementById('edit-comm').value)||0;
+  // meetHours 由績效指標 PIC 反修點數自動計算，此處不覆寫
+  m.note          = document.getElementById('edit-note').value;
+  m.mail_level    = document.getElementById('edit-level')?.value||'';
+  m.mail_category = document.getElementById('edit-category')?.value||'';
+  const cpEl2 = document.getElementById('edit-count-perf');
+  if(cpEl2) m.count_perf = cpEl2.checked;
+  saveMails();
+  closeEdit();
+  toast('✓ 派單已更新：' + editMailId);
+}
+
+function deleteMailFromEdit(){
+  const m = mails.find(x=>x.id===editMailId); if(!m) return;
+  if(!confirm(`確定刪除「${m.subject}」？此操作無法復原`)) return;
+  mails = mails.filter(x=>x.id!==editMailId);
+  saveMails();
+  closeEdit();
+  toast('✓ 已刪除');
+}
+
+
+function renderBundlePage(q){
+  const isAdmin = curLeader==='__admin__';
+  const list = q ? projects.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())) : projects;
+  document.getElementById('bundle-add-row').style.display = isAdmin ? 'block' : 'none';
+  document.getElementById('bundle-summary').innerHTML=`
+    <div class="stat-card"><div class="stat-label">專案數量</div><div class="stat-value sv-blue">${projects.length}</div><div class="stat-sub">個</div></div>`;
+  document.getElementById('bundle-tbody').innerHTML = list.length ? list.map(p=>{
+    const ri = projects.indexOf(p);
+    const tot = bundleTotal(p);
+    if(isAdmin){
+      return`<tr>
+        <td><input type="text" value="${p.name}" id="bname-${ri}" style="min-width:160px;font-size:13px;font-family:var(--sans);"></td>
+        <td><input type="number" value="${p.hours||0}" id="bh-${ri}" min="0" step="0.5" style="width:72px;" oninput="liveBundleRow(${ri})"></td>
+        <td><input type="number" value="${p.revHours||0}" id="br-${ri}" min="0" step="0.5" style="width:72px;" oninput="liveBundleRow(${ri})"></td>
+        <td><input type="number" value="${p.commHours||0}" id="bc-${ri}" min="0" step="0.5" style="width:72px;" oninput="liveBundleRow(${ri})"></td>
+        <td><input type="number" value="${p.extRevHours||0}" id="bex-${ri}" min="0" step="0.5" style="width:72px;" oninput="liveBundleRow(${ri})"></td>
+        <td class="calc" id="btot-${ri}">${tot}h</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteBundleProj(${ri})">刪除</button></td>
+      </tr>`;
+    } else {
+      return`<tr>
+        <td style="font-weight:500">${p.name}</td>
+        <td class="calc">${p.hours||0}</td>
+        <td class="calc">${p.revHours||0}</td>
+        <td class="calc">${p.commHours||0}</td>
+        <td class="calc">${p.extRevHours||0}</td>
+        <td class="calc">${tot}h</td>
+        <td></td>
+      </tr>`;
+    }
+  }).join('') : '<tr><td colspan="7" class="empty">無符合專案</td></tr>';
+}
+
+function liveBundleRow(ri){
+  const h=parseFloat(document.getElementById('bh-'+ri)?.value)||0;
+  const r=parseFloat(document.getElementById('br-'+ri)?.value)||0;
+  const c=parseFloat(document.getElementById('bc-'+ri)?.value)||0;
+  const ex=parseFloat(document.getElementById('bex-'+ri)?.value)||0;
+  const el=document.getElementById('btot-'+ri);
+  if(el) el.textContent=(+(h+r+c+ex).toFixed(2))+'h';
+}
+
+// 管理者儲存所有工時彙整變更 → 推送到 Firebase
+function saveBundleEdits(){
+  projects.forEach((p, ri) => {
+    const nameEl = document.getElementById('bname-'+ri);
+    if(!nameEl) return;
+    p.name       = nameEl.value.trim() || p.name;
+    p.hours      = parseFloat(document.getElementById('bh-'+ri)?.value)||0;
+    p.revHours   = parseFloat(document.getElementById('br-'+ri)?.value)||0;
+    p.commHours  = parseFloat(document.getElementById('bc-'+ri)?.value)||0;
+    p.extRevHours= parseFloat(document.getElementById('bex-'+ri)?.value)||0;
+  });
+  saveP();
+  populateSelects();
+  toast('✓ 已儲存並同步至所有裝置');
+}
+
+function deleteBundleProj(ri){
+  if(!confirm('確定刪除「'+projects[ri].name+'」？'))return;
+  projects.splice(ri,1);
+  saveP();
+  populateSelects();
+  renderBundlePage('');
+  toast('✓ 已刪除');
+}
+
+function addBundleProj(){
+  const name=document.getElementById('bn-name').value.trim();
+  if(!name){toast('⚠ 請輸入專案名稱');return;}
+  if(projects.find(p=>p.name===name)){toast('⚠ 專案已存在');return;}
+  projects.push({
+    name,
+    pos:'', hours:parseFloat(document.getElementById('bn-h').value)||0,
+    revHours:parseFloat(document.getElementById('bn-r').value)||0,
+    commHours:parseFloat(document.getElementById('bn-c').value)||0,
+    extRevHours:parseFloat(document.getElementById('bn-ex').value)||0,
+    meetHours:0, level:'', group:'', qty:0, defaultSubjects:[]
+  });
+  saveP();
+  populateSelects();
+  ['bn-name','bn-h','bn-r','bn-c','bn-ex'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderBundlePage('');
+  toast('✓ 已新增並同步：'+name);
+}
+
+// ── 貼上匯入 ──────────────────────────────────────────
+let importParsed = [];
+function parsePasteImport(){
+  const raw=document.getElementById('paste-import-area').value.trim();
+  if(!raw){toast('⚠ 請先貼上資料');return;}
+  const lines=raw.split(/\r?\n/).map(l=>l.trimEnd()).filter(l=>l.trim());
+  if(lines.length<2){toast('⚠ 至少需要標題列+一列資料');return;}
+  const dataLines=lines.slice(1);
+  importParsed=[];let skipped=0;
+  const parseNum=s=>{if(!s)return 0;const clean=String(s).replace(/,(?=\d{3})/g,'').replace(/[^\d.]/g,'');return parseFloat(clean)||0;};
+  dataLines.forEach(line=>{
+    const cols=line.split('\t');
+    const name=(cols[0]||'').trim().replace(/\r/g,'');
+    if(!name){skipped++;return;}
+    const make=parseNum(cols[1]),inRev=parseNum(cols[2]),comm=parseNum(cols[3]),extRev=parseNum(cols[4]);
+    importParsed.push({name,make,inRev,extRev,comm,total:+(make+inRev+comm+extRev).toFixed(2)});
+  });
+  if(!importParsed.length){document.getElementById('import-status').textContent='⚠ 解析出 0 筆';return;}
+  document.getElementById('import-preview-tbody').innerHTML=importParsed.map((r,i)=>`
+    <tr style="${i%2===0?'':'background:rgba(255,255,255,.02)'}">
+      <td>${r.name}</td><td class="mid">${r.make}</td><td class="mid">${r.inRev}</td><td class="mid">${r.comm}</td><td class="mid">${r.extRev}</td><td class="mid" style="color:var(--accent)">${r.total}</td>
+    </tr>`).join('');
+  document.getElementById('import-preview').style.display='block';
+  document.getElementById('import-status').textContent=`解析到 ${importParsed.length} 筆${skipped?`，跳過 ${skipped} 筆`:''}`;
+}
+function confirmPasteImport(){
+  if(!importParsed.length){toast('⚠ 沒有資料可匯入');return;}
+  const overwrite=document.getElementById('import-overwrite').checked;
+  let added=0,updated=0,dup=0;
+  importParsed.forEach(r=>{
+    const existing=projects.findIndex(p=>p.name===r.name);
+    const entry={level:'',group:'',name:r.name,pos:'',hours:r.make,revHours:r.inRev,commHours:r.comm,meetHours:0,extRevHours:r.extRev,qty:0,defaultSubjects:[]};
+    if(existing>=0){if(overwrite){projects[existing]=entry;updated++;}else dup++;}
+    else{projects.push(entry);added++;}
+  });
+  saveP();populateSelects();renderBundlePage('');cancelImport();
+  toast(`✓ 匯入完成：新增 ${added} 筆，更新 ${updated} 筆${dup?`，略過 ${dup} 筆`:''}`);}
+function cancelImport(){document.getElementById('import-preview').style.display='none';document.getElementById('import-status').textContent='';importParsed=[];}
+
+// ══ SETTINGS ══════════════════════════════════════════
+function renderSettings(){
+  // 組長列表（可無限新增）
+  document.getElementById('leaders-list').innerHTML = leaders.map((l,i)=>`
+    <div class="leader-row">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text3);width:36px;flex-shrink:0">ID-${l.id}</span>
+      <input type="text" value="${l.name}" id="ln-${i}" style="flex:1;">
+      <button class="btn btn-primary btn-sm" onclick="saveLeader(${i})">儲存</button>
+      <button class="btn btn-danger btn-sm" onclick="removeLeader(${i})">刪除</button>
+    </div>`).join('');
+
+  // 設計師列表
+  document.getElementById('d-count').textContent=designers.length+' 位';
+  document.getElementById('designers-list').innerHTML=designers.map((d,i)=>`
+    <div class="irow">
+      <span class="ilabel">${d}</span>
+      <button class="btn btn-danger btn-sm" onclick="removeDes(${i})">刪除</button>
+    </div>`).join('');
+
+  // 等級 / 類別清單
+  renderLevelCategorySettings();
+
+  // 設計師歸屬設定
+  const assignEl=document.getElementById('des-assign-list');
+  if(assignEl){
+    const lOpts=leaders.map(l=>`<option value="${l.id}">${l.name}</option>`).join('');
+    const lOpts2=leaders.map(l=>`<option value="${l.id}">${l.name}</option>`).join('');
+    assignEl.innerHTML=designers.length?`
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--border);">
+        <span style="font-size:12px;color:var(--text2);">修改後記得按「儲存歸屬設定」</span>
+        <button class="btn btn-primary btn-sm" onclick="saveAllDesLeaders()">💾 儲存歸屬設定</button>
+      </div>
+      ${designers.map((d,i)=>`
+        <div class="des-assign-row">
+          <span class="des-assign-name">${d}</span>
+          <select class="des-assign-sel" id="des-sel-${i}">
+            <option value="">— 未指派 —</option>${lOpts2}
+          </select>
+        </div>`).join('')}
+    ` :`<div style="font-size:12px;color:var(--text3);padding:10px 0">尚無設計師</div>`;
+    // 設定當前值（用 index 對應，避免特殊字元問題）
+    designers.forEach((d,i)=>{
+      const sel=document.getElementById('des-sel-'+i);
+      if(sel) sel.value=designers_meta[d]?.leaderId||'';
+    });
+  }
+}
+
+function saveLeader(i){
+  const el=document.getElementById('ln-'+i); if(!el)return;
+  const v=el.value.trim(); if(!v){toast('⚠ 不得為空');return;}
+  leaders[i].name=v; saveL(); applyChip(); toast('✓ 組長名稱已更新：'+v);
+}
+function addLeader(){
+  // 自動生成新 ID（E, F, G… 或數字）
+  const existIds=leaders.map(l=>l.id);
+  let newId='E';
+  const alpha='EFGHIJKLMNOPQRSTUVWXYZ';
+  for(const c of alpha){ if(!existIds.includes(c)){newId=c;break;} }
+  if(existIds.includes(newId)) newId=String(leaders.length+1);
+  leaders.push({id:newId,name:'新組長 '+newId});
+  saveL(); renderSettings(); toast('✓ 已新增組長 ID-'+newId);
+}
+function removeLeader(i){
+  if(!confirm('確定刪除「'+leaders[i].name+'」？\n注意：該組長底下的工單 leader 欄位不會自動清除'))return;
+  leaders.splice(i,1); saveL(); renderSettings(); toast('✓ 已刪除');
+}
+function setDesLeader(dName, leaderId){
+  if(!designers_meta[dName]) designers_meta[dName]={};
+  designers_meta[dName].leaderId=leaderId;
+  saveDesMeta(); toast('✓ 已設定 '+dName+' → '+lName(leaderId));
+}
+function saveAllDesLeaders(){
+  let count = 0;
+  designers.forEach((d,i)=>{
+    const sel = document.getElementById('des-sel-'+i);
+    if(!sel) return;
+    if(!designers_meta[d]) designers_meta[d]={};
+    designers_meta[d].leaderId = sel.value;
+    count++;
+  });
+  _skipNextDesMetaUpdate = true;
+  saveDesMeta();
+  // 按鈕變色確認
+  const btn = document.querySelector('#des-assign-list button[onclick="saveAllDesLeaders()"]');
+  if(btn){
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✅ 已儲存！';
+    btn.style.background = 'var(--green)';
+    btn.disabled = true;
+    setTimeout(()=>{ btn.innerHTML=orig; btn.style.background=''; btn.disabled=false; }, 2500);
+  }
+  toast('✅ 設計師歸屬已儲存（'+count+' 位），重整後設定將保留');
+}
+function addDesigner(){
+  const v=document.getElementById('new-d').value.trim();
+  if(!v){toast('⚠ 請輸入姓名');return;}
+  if(designers.includes(v)){toast('⚠ 已存在');return;}
+  designers.push(v); saveD();
+  document.getElementById('new-d').value=''; toast('✓ 已新增：'+v);
+}
+function removeDes(i){
+  if(!confirm('確定刪除「'+designers[i]+'」？'))return;
+  const name=designers[i];
+  designers.splice(i,1); saveD();
+  if(designers_meta[name]){ delete designers_meta[name]; saveDesMeta(); }
+  toast('✓ 已刪除');
+}
+
+// ══ TEAM HOURS ════════════════════════════════════════
+function thGetRange(){
+  const mode=document.getElementById('th-period').value;
+  if(mode==='week'){
+    const now=new Date(),day=now.getDay();
+    const mon=new Date(now);mon.setDate(now.getDate()-(day===0?6:day-1));
+    const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+    const fmt=d=>d.toISOString().slice(0,10);
+    return{from:fmt(mon),to:fmt(sun),label:`${fmt(mon)} ～ ${fmt(sun)}（本週）`};
+  } else {
+    const from=document.getElementById('th-date-from').value,to=document.getElementById('th-date-to').value;
+    return{from,to,label:from&&to?`${from} ～ ${to}`:'請選擇日期範圍'};
+  }
+}
+function thSwitchMode(val){
+  document.getElementById('th-custom-range').style.display=val==='custom'?'flex':'none';
+  if(val==='week')renderTeamHours();
+}
+function renderTeamHours(){
+  const{from,to,label}=thGetRange();
+  document.getElementById('th-range-label').textContent=label;
+  const data=mails.filter(m=>{const d=m.created_at?m.created_at.slice(0,10):'';return(!from||d>=from)&&(!to||d<=to);});
+  document.getElementById('th-teams').innerHTML=leaders.map((leader,li)=>{
+    const leaderMails=data.filter(m=>m.leader===leader.id);
+    const desMap={};
+    leaderMails.forEach(m=>{if(!m.designer)return;if(!desMap[m.designer])desMap[m.designer]=[];desMap[m.designer].push(m);});
+    const teamTotal=leaderMails.reduce((s,m)=>s+totalH(m),0);
+    const designerNames=Object.keys(desMap).sort();
+    const colors=['var(--accent)','var(--green)','var(--amber)','var(--purple)'];
+    const ci=li%colors.length;
+    const rowsHtml=designerNames.length?designerNames.map(dName=>{
+      const dMails=desMap[dName],dTotal=dMails.reduce((s,m)=>s+totalH(m),0);
+      const dMake=dMails.reduce((s,m)=>s+(m.hours||0),0),dRev=dMails.reduce((s,m)=>s+(m.revHours||0),0);
+      const dComm=dMails.reduce((s,m)=>s+(m.commHours||0),0),dMeet=dMails.reduce((s,m)=>s+(m.meetHours||0),0);
+      const uid=`${leader.id}-${dName.replace(/\s/g,'_')}`;
+      const mailChips=dMails.map(m=>`<span class="th-mail-chip"><span class="badge ${SB[m.status]}" style="padding:1px 5px;font-size:9px;gap:3px">${SL[m.status]}</span>${m.subject.length>18?m.subject.slice(0,18)+'…':m.subject}</span>`).join('');
+      return`<div class="th-designer-row">
+        <div class="th-designer-main" onclick="thToggle('${uid}')">
+          <span class="th-designer-name"><span class="th-expand-icon" id="icon-${uid}">▼</span>${dName}<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${dMails.length}單</span></span>
+          <span class="th-designer-hrs${dTotal===0?' zero':''}">${dTotal.toFixed(1)}h</span>
+        </div>
+        <div class="th-detail" id="detail-${uid}">
+          <div class="th-detail-grid">
+            <div class="th-detail-item"><span class="th-detail-label">製作</span><span class="th-detail-val">${dMake.toFixed(1)}h</span></div>
+            <div class="th-detail-item"><span class="th-detail-label">反修</span><span class="th-detail-val">${dRev.toFixed(1)}h</span></div>
+            <div class="th-detail-item"><span class="th-detail-label">溝通</span><span class="th-detail-val">${dComm.toFixed(1)}h</span></div>
+            <div class="th-detail-item"><span class="th-detail-label">會議</span><span class="th-detail-val">${dMeet.toFixed(1)}h</span></div>
+          </div>
+          <div class="th-detail-mails">${mailChips||'<span style="color:var(--text3);font-size:11px">—</span>'}</div>
+        </div>
+      </div>`;
+    }).join(''):`<div class="th-empty">本期無派單</div>`;
+    return`<div class="th-team-card"><div class="th-team-head" style="border-left:3px solid ${colors[ci]};"><span class="th-team-name" style="color:${colors[ci]}">${leader.name}</span><span class="th-team-total">${teamTotal.toFixed(1)}h</span></div>${rowsHtml}</div>`;
+  }).join('');
+}
+function thToggle(uid){
+  document.getElementById('detail-'+uid)?.classList.toggle('open');
+  document.getElementById('icon-'+uid)?.classList.toggle('open');
+}
+
+// ══ EXCEL 匯出 ════════════════════════════════════════
+function downloadExcel(filename,sheets){
+  let html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>`;
+  sheets.forEach(s=>{html+=`<x:ExcelWorksheet><x:Name>${s.name}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet>`;});
+  html+=`</x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>`;
+  sheets.forEach(s=>{
+    html+=`<table><tr><td colspan="${s.headers.length}" style="font-weight:bold;font-size:14px">${s.title}</td></tr><tr>${s.headers.map(h=>`<th>${h}</th>`).join('')}</tr>`;
+    s.rows.forEach(row=>{html+=`<tr>${row.map(c=>`<td>${c==null?'':c}</td>`).join('')}</tr>`;});
+    html+=`</table><br>`;
+  });
+  html+=`</body></html>`;
+  const blob=new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();URL.revokeObjectURL(a.href);
+}
+function exportDashboardExcel(){
+  const data=getDash();const dateStr=new Date().toISOString().slice(0,10);
+  const detailRows=data.map(m=>[m.id,m.subject,m.project,m.designer,lName(m.leader),m.due_date,SL[m.status]||m.status,m.hours||0,m.revHours||0,m.commHours||0,m.meetHours||0,totalH(m),m.revision_count||0,m.error_count||0,m.dl_miss?'是':'否',m.note||'']);
+  const desRows=designers.filter(d=>data.some(m=>m.designer===d)).map(d=>{const items=data.filter(m=>m.designer===d);const th=items.reduce((s,m)=>s+totalH(m),0);const rev=items.reduce((s,m)=>s+m.revision_count,0);const err=items.reduce((s,m)=>s+m.error_count,0);const dl=items.filter(m=>m.dl_miss).length;const cl=items.filter(m=>m.status==='closed').length;return[d,items.length,cl,th.toFixed(1),rev,err,dl,items.length?Math.round(rev/items.length*100)+'%':'—'];});
+  const projNames=[...new Set(data.map(m=>m.project))].sort();
+  const projRows=projNames.map(pn=>{const items=data.filter(m=>m.project===pn);const ah=items.reduce((s,m)=>s+(m.hours||0),0),ar=items.reduce((s,m)=>s+(m.revHours||0),0),ac=items.reduce((s,m)=>s+(m.commHours||0),0),am=items.reduce((s,m)=>s+(m.meetHours||0),0),atot=(ah+ar+ac+am).toFixed(1);const pb=pBundle(pn);const std=pb?bundleTotal(pb):'—';const diff=pb?(atot/items.length-bundleTotal(pb)).toFixed(2):'—';return[pn,items.length,ah.toFixed(1),ar.toFixed(1),ac.toFixed(1),am.toFixed(1),atot,std,diff];});
+  downloadExcel(`週報_${dateStr}.xls`,[
+    {name:'派單明細',title:'派單明細',headers:['ID','主旨','專案','設計師','組長','截止日','狀態','工時h','內審反修h','溝通h','會議h','總工時h','反修次','失誤次','DL miss','備註'],rows:detailRows},
+    {name:'設計師統計',title:'設計師統計',headers:['設計師','派單數','結案數','總工時h','反修次','失誤次','DL miss','反修率'],rows:desRows},
+    {name:'專案工時',title:'專案工時彙整',headers:['專案','派單數','工時h','內審反修h','溝通h','會議h','實際總工時','標準工時/單','差異'],rows:projRows},
+  ]);toast('✓ 匯出完成');
+}
+function exportTeamExcel(){
+  const{from,to,label}=thGetRange();const data=mails.filter(m=>{const d=m.created_at?m.created_at.slice(0,10):'';return(!from||d>=from)&&(!to||d<=to);});const dateStr=new Date().toISOString().slice(0,10);
+  const summaryRows=[];leaders.forEach(leader=>{const lMails=data.filter(m=>m.leader===leader.id);const desMap={};lMails.forEach(m=>{if(!m.designer)return;if(!desMap[m.designer])desMap[m.designer]=[];desMap[m.designer].push(m);});Object.keys(desMap).sort().forEach(dName=>{const dMails=desMap[dName];const dTotal=dMails.reduce((s,m)=>s+totalH(m),0),dMake=dMails.reduce((s,m)=>s+(m.hours||0),0),dRev=dMails.reduce((s,m)=>s+(m.revHours||0),0),dComm=dMails.reduce((s,m)=>s+(m.commHours||0),0),dMeet=dMails.reduce((s,m)=>s+(m.meetHours||0),0);summaryRows.push([leader.name,dName,dMails.length,dMake.toFixed(1),dRev.toFixed(1),dComm.toFixed(1),dMeet.toFixed(1),dTotal.toFixed(1)]);});});
+  const detailRows=data.map(m=>[lName(m.leader),m.designer,m.id,m.subject,m.project,SL[m.status]||m.status,m.created_at?m.created_at.slice(0,10):'',m.hours||0,m.revHours||0,m.commHours||0,m.meetHours||0,totalH(m)]);
+  downloadExcel(`小組工時_${dateStr}.xls`,[
+    {name:'小組總覽',title:`小組工時總覽（${label}）`,headers:['小組','設計師','派單數','工時h','內審反修h','溝通h','會議h','總工時h'],rows:summaryRows},
+    {name:'派單明細',title:'派單明細',headers:['小組','設計師','ID','主旨','專案','狀態','日期','工時h','內審反修h','溝通h','會議h','總工時h'],rows:detailRows},
+  ]);toast('✓ 匯出完成');
+}
+
+// ══ 備份 / 還原 ═══════════════════════════════════════
+function exportJSON(){
+  const data={version:4,exported_at:new Date().toISOString(),mails,leaders,designers,projects,designers_meta,leaves,mailLevels,mailCategories};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mail-tracker-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);
+  toast('✓ 已匯出備份');
+}
+function importJSON(input){
+  const file=input.files[0];if(!file)return;
+  document.getElementById('import-file-name').textContent=file.name;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(!data.version||!Array.isArray(data.mails)){toast('⚠ 檔案格式不正確');return;}
+      if(!confirm(`確定還原？\n備份時間：${new Date(data.exported_at).toLocaleString('zh-TW')}\n派單筆數：${data.mails.length} 筆\n⚠ 現有資料將全部被覆蓋`)){input.value='';document.getElementById('import-file-name').textContent='未選擇檔案';return;}
+      mails=data.mails||[];
+      leaders=data.leaders||DEFAULT_LEADERS;
+      designers=data.designers||[];
+      projects=(data.projects||[]).map(p=>({defaultSubjects:[],extRevHours:0,meetHours:0,qty:0,level:'',group:'',pos:'',...p}));
+      designers_meta=data.designers_meta||{};
+      leaves=data.leaves||[];
+      mailLevels=data.mailLevels||[...DEFAULT_LEVELS];
+      mailCategories=data.mailCategories||[...DEFAULT_CATEGORIES];
+      // 一次性全部寫入 Firebase，所有裝置都會更新
+      saveMails();saveL();saveD();saveP();saveDesMeta();saveLeaves();saveLevels();saveCategories();
+      populateSelects();updateWip();renderToday();renderLoginBtns();renderSettings();
+      input.value='';document.getElementById('import-file-name').textContent='未選擇檔案';
+      toast('✓ 資料還原成功，共 '+mails.length+' 筆派單');
+    }catch(err){toast('⚠ 讀取失敗：'+err.message);}
+  };
+  reader.readAsText(file);
+}
+
+
+// ══ 週報（組別視角）════════════════════════════════════
+// 取得設計師所屬組別（依 designers_meta 綁定，與派單組長無關）
+function getDesLeaderId(dName){ return designers_meta[dName]?.leaderId || null; }
+function getDesLeaderName(dName){ return lName(getDesLeaderId(dName)); }
+
+function setWeeklyPeriod(p, btn){
+  weeklyPeriod = p;
+  document.querySelectorAll('#page-weekly .period-tab').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const cr = document.getElementById('weekly-custom-range');
+  if(cr) cr.style.display = p==='custom' ? 'flex' : 'none';
+  if(p !== 'custom') renderWeekly();
+}
+
+function getWeeklyRange(){
+  if(weeklyPeriod === 'week'){
+    const now = new Date();
+    const day = now.getDay();
+    const mon = new Date(now); mon.setDate(now.getDate() - (day===0?6:day-1));
+    const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+    const fmt = d => d.toISOString().slice(0,10);
+    // Build array of 5 weekdays (Mon-Fri) labels
+    const days = [];
+    for(let i=0;i<5;i++){ const d=new Date(mon); d.setDate(mon.getDate()+i); days.push(fmt(d)); }
+    return { from:fmt(mon), to:fmt(sun), days, label:`${fmt(mon)} ～ ${fmt(sun)}` };
+  } else {
+    const from = document.getElementById('weekly-from')?.value || '';
+    const to   = document.getElementById('weekly-to')?.value || '';
+    // Generate days between from and to (weekdays only, max 14)
+    const days = [];
+    if(from && to){
+      const cur = new Date(from);
+      const end = new Date(to);
+      while(cur <= end && days.length < 14){
+        const dow = cur.getDay();
+        if(dow!==0 && dow!==6) days.push(cur.toISOString().slice(0,10));
+        cur.setDate(cur.getDate()+1);
+      }
+    }
+    return { from, to, days, label: from&&to ? `${from} ～ ${to}` : '請選擇日期' };
+  }
+}
+
+// 取得某人在某日期範圍內是否有請假（任一天重疊即算）
+function isPersonOnLeave(person, from, to){
+  return leaves.some(lv => lv.person === person && lv.start <= to && lv.end >= from);
+}
+
+// 取得一組人在某週內請假的人數（用於平均計算）
+function getAbsentCount(persons, from, to){
+  return persons.filter(p => isPersonOnLeave(p, from, to)).length;
+}
+
+const DAY_NAMES = ['日','一','二','三','四','五','六'];
+
+function renderWeekly(){
+  const range = getWeeklyRange();
+  const label = document.getElementById('weekly-range-label');
+  if(label) label.textContent = range.label;
+
+  // Build group tabs (all leaders, but non-admin only sees own)
+  const tabsEl = document.getElementById('weekly-group-tabs');
+  const visLeaders = curLeader==='__admin__' ? leaders : leaders.filter(l=>l.id===curLeader);
+  if(!tabsEl) return;
+
+  tabsEl.innerHTML = visLeaders.map((l,i)=>`
+    <button class="weekly-group-tab${(!activeWeeklyGroup&&i===0)||activeWeeklyGroup===l.id?' active':''}"
+      onclick="setWeeklyGroup('${l.id}',this)">${l.name}</button>`).join('');
+
+  // Default to first visible group
+  if(!activeWeeklyGroup || !visLeaders.find(l=>l.id===activeWeeklyGroup)){
+    activeWeeklyGroup = visLeaders[0]?.id || null;
+  }
+
+  renderWeeklyGroup(activeWeeklyGroup, range);
+}
+
+function setWeeklyGroup(gId, btn){
+  activeWeeklyGroup = gId;
+  document.querySelectorAll('.weekly-group-tab').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderWeeklyGroup(gId, getWeeklyRange());
+}
+
+function renderWeeklyGroup(gId, range){
+  const contentEl = document.getElementById('weekly-content');
+  if(!contentEl) return;
+  const leader = leaders.find(l=>l.id===gId);
+  if(!leader){ contentEl.innerHTML='<div class="empty">請選擇組別</div>'; return; }
+
+  const groupDes = designers.filter(d => getDesLeaderId(d) === gId);
+  if(!groupDes.length){
+    contentEl.innerHTML = `<div class="card" style="padding:24px;">
+      <div style="text-align:center;color:var(--text3);font-size:13px;">
+        此組別尚無設計師<br>
+        <span style="font-size:12px">請至「⚙ 設定」頁，在「設計師隸屬組長」區塊指派設計師給 ${leader.name}</span>
+      </div></div>`;
+    return;
+  }
+
+  // 包含所有工單（工時記錄不受DC影響）
+  const periodMails = mails.filter(m => {
+    return (m.due_date || '') >= range.from && (m.due_date || '') <= range.to
+      && groupDes.includes(m.designer);
+  });
+  // DC工單：count_perf=true 表示「DC = 不計工單數」
+  const isDC = m => m.count_perf === true;
+
+  const days = range.days; // weekday date strings
+  const dLen = days.length;
+
+  // ── 逐日判斷每人是否請假（day-level）────────────────
+  // isOnLeaveDay(person, dateStr) → boolean
+  function isOnLeaveDay(person, dateStr){
+    return leaves.some(lv => lv.person === person && lv.start <= dateStr && lv.end >= dateStr);
+  }
+
+  // ── 精確週平均分母（出勤人日 ÷ 工作天數）──────────────
+  // 每人出勤天數 = 工作天數 - 請假天數（只算 days 範圍內的請假）
+  // 總出勤人日 = Σ 每人出勤天數
+  // 等效出勤人數 = 總出勤人日 ÷ 工作天數
+  let totalAttendanceDays = 0;
+  // perDesLeaveDays[des] = { days: 整天數, partialHrs: 部分時數合計, label: 顯示文字 }
+  const perDesLeaveDays = {};
+  groupDes.forEach(des => {
+    const thisWeekLeaves = leaves.filter(lv =>
+      lv.person === des && lv.start <= range.to && lv.end >= range.from
+    );
+    const wholeDayLeaves = thisWeekLeaves.filter(lv => !lv.partial_hours);
+    const partialLeaves  = thisWeekLeaves.filter(lv => lv.partial_hours > 0);
+    // 整天假：只計算非部分時數的假，數 days 範圍內有幾天重疊
+    const leaveDays = days.filter(d =>
+      wholeDayLeaves.some(lv => lv.start <= d && lv.end >= d)
+    ).length;
+    // 部分時數：加總當週的部分假時數
+    const partialHrs = partialLeaves.reduce((s,lv)=>s+(lv.partial_hours||0),0);
+    // 顯示標籤
+    const parts = [];
+    if(leaveDays > 0) parts.push(`${leaveDays}天`);
+    if(partialHrs > 0) parts.push(`${partialHrs}hr`);
+    const label = parts.join('+');
+    perDesLeaveDays[des] = { days: leaveDays, partialHrs, label };
+    // 出勤計算：整天假扣天數，部分時數視為出勤（只扣比例）
+    const partialDayEquiv = partialHrs / 8;
+    totalAttendanceDays += (days.length - leaveDays - partialDayEquiv);
+  });
+  // 等效人數（用於平均，保留1位小數）
+  const effectivePeople = days.length > 0 ? totalAttendanceDays / days.length : 0;
+  // 有請假的人（全週至少請一天或部分時數）
+  const hasAnyLeave = groupDes.filter(d => perDesLeaveDays[d].days>0 || perDesLeaveDays[d].partialHrs>0);
+
+  const daysHeader = days.map(d => {
+    const dt = new Date(d+'T00:00:00');
+    const mn = (dt.getMonth()+1), dy = dt.getDate(), dow = DAY_NAMES[dt.getDay()];
+    return `<th><div class="day-col-header"><span class="day-num">${mn}/${dy}</span><span class="day-name">${dow}</span></div></th>`;
+  }).join('');
+
+  let totMakeH=0, totInnerH=0, totExtH=0, totCount=0;
+
+  const desRows = groupDes.map(des => {
+    const desMails = periodMails.filter(m => m.designer === des);
+    const leaveData = perDesLeaveDays[des]; // { days, partialHrs, label }
+
+    const mkCell = (v, cls='', des2=des, d2='') => {
+      const leave = d2 ? isOnLeaveDay(des2, d2) : false;
+      const leaveTag = (leave && cls==='') ? '<span style="display:block;font-size:9px;color:var(--red);opacity:.8;line-height:1">休</span>' : '';
+      const bg = leave ? 'background:rgba(242,95,92,.05);' : '';
+      return `<td class="${cls}" style="${bg}">${v||'—'}${leaveTag}</td>`;
+    };
+
+    // 工單數 & 製作工時 → 依「預計完成日 (due_date)」分欄
+    // 內審反修、外部反修 → 依「預計完成日 (due_date)」分欄
+    const dayCountCells = days.map(d => mkCell(desMails.filter(m=>m.due_date===d && !isDC(m)).length, '', des, d));
+    const dayMakeCells  = days.map(d => mkCell(+desMails.filter(m=>m.due_date===d).reduce((s,m)=>s+(m.hours||0),0).toFixed(1)||0, '', des, d));
+    const dayInnerCells = days.map(d => mkCell(+desMails.filter(m=>m.due_date===d).reduce((s,m)=>s+(m.revHours||0),0).toFixed(1)||0, 'inner-col', des, d));
+    const dayExtCells   = days.map(d => mkCell(+desMails.filter(m=>m.due_date===d).reduce((s,m)=>s+(m.meetHours||0),0).toFixed(1)||0, 'rev-col', des, d));
+
+    const sumCount  = desMails.filter(m=>!isDC(m)).length;
+    const sumMakeH  = +desMails.reduce((s,m)=>s+(m.hours||0),0).toFixed(1);
+    const sumInnerH = +desMails.reduce((s,m)=>s+(m.revHours||0),0).toFixed(1);
+    const sumExtH   = +desMails.reduce((s,m)=>s+(m.meetHours||0),0).toFixed(1);
+    const sumTotalH = +(sumMakeH+sumInnerH+sumExtH).toFixed(1);
+
+    totCount+=sumCount; totMakeH+=(+desMails.reduce((s,m)=>s+(m.hours||0),0).toFixed(1)); totInnerH+=(+desMails.reduce((s,m)=>s+(m.revHours||0),0).toFixed(1)); totExtH+=(+desMails.reduce((s,m)=>s+(m.meetHours||0),0).toFixed(1));
+
+    const leaveNote = leaveData.label
+      ? ` <span style="font-size:10px;color:var(--red)">[請假${leaveData.label}]</span>` : '';
+
+    return `<tr>
+      <td class="name-col">${des}${leaveNote}</td>
+      ${dayCountCells.join('')}<td class="total-col" style="font-weight:500">${sumCount}</td>
+      ${dayMakeCells.join('')}<td class="total-col">${sumMakeH}h</td>
+      ${dayInnerCells.join('')}<td class="total-col inner-col">${sumInnerH}h</td>
+      ${dayExtCells.join('')}<td class="total-col rev-col">${sumExtH}h</td>
+      <td class="total-col" style="color:var(--green);font-weight:500">${sumTotalH}h</td>
+      <td style="color:var(--text3);font-size:11px">—</td>
+    </tr>`;
+  }).join('');
+
+  // ── 週平均 ─────────────────────────────────────────
+  const ep = effectivePeople;
+  const fmtH = v => ep > 0 ? (v/ep).toFixed(1)+'h' : '—';
+  const fmtN = v => ep > 0 ? (v/ep).toFixed(1) : '—';
+  const avgLabelShort = `(≈${ep.toFixed(1)}人等效)`;
+  const totTotalH = +(totMakeH+totInnerH+totExtH).toFixed(1);
+
+  const avgRow = `<tr class="avg-row">
+    <td class="name-col">組內週平均 <span style="font-size:10px;color:var(--green)">${avgLabelShort}</span></td>
+    ${days.map(()=>'<td>—</td>').join('')}<td class="total-col">${fmtN(totCount)}</td>
+    ${days.map(()=>'<td>—</td>').join('')}<td class="total-col">${fmtH(totMakeH)}</td>
+    ${days.map(()=>'<td>—</td>').join('')}<td class="total-col">${fmtH(totInnerH)}</td>
+    ${days.map(()=>'<td>—</td>').join('')}<td class="total-col">${fmtH(totExtH)}</td>
+    <td class="total-col" style="color:var(--green)">${fmtH(totTotalH)}</td>
+    <td>—</td>
+  </tr>`;
+
+  const totRow = `<tr style="font-weight:600;background:var(--surface2);">
+    <td class="name-col" style="color:var(--text2)">週合計</td>
+    ${days.map(()=>'<td style="color:var(--text3)">—</td>').join('')}<td class="total-col">${totCount}</td>
+    ${days.map(()=>'<td style="color:var(--text3)">—</td>').join('')}<td class="total-col">${totMakeH.toFixed(1)}h</td>
+    ${days.map(()=>'<td style="color:var(--text3)">—</td>').join('')}<td class="total-col">${totInnerH.toFixed(1)}h</td>
+    ${days.map(()=>'<td style="color:var(--text3)">—</td>').join('')}<td class="total-col">${totExtH.toFixed(1)}h</td>
+    <td class="total-col" style="color:var(--green)">${totTotalH}h</td>
+    <td>—</td>
+  </tr>`;
+
+  const leaveInfo = hasAnyLeave.length
+    ? ` · ${hasAnyLeave.map(d=>`${d}請假${perDesLeaveDays[d].label}`).join('、')}` : '';
+
+  contentEl.innerHTML = `
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-family:var(--mono);font-size:12px;color:var(--text2)">${leader.name}　共 ${groupDes.length} 位設計師${leaveInfo}</span>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${range.label}</span>
+      </div>
+      <div class="tw">
+        <table class="weekly-table">
+          <thead>
+            <tr>
+              <th rowspan="2" style="min-width:100px;text-align:left">設計師</th>
+              <th colspan="${dLen+1}" class="section-header" style="color:var(--text)">工單數</th>
+              <th colspan="${dLen+1}" class="section-header" style="color:var(--accent)">製作工時 (hr)</th>
+              <th colspan="${dLen+1}" class="section-header" style="color:var(--amber)">內審反修 (hr)</th>
+              <th colspan="${dLen+1}" class="section-header" style="color:var(--purple)">外部反修 (hr)</th>
+              <th rowspan="2" style="min-width:72px;color:var(--green)">週總工時</th>
+              <th rowspan="2" style="min-width:60px;color:var(--green)">週平均</th>
+            </tr>
+            <tr>
+              ${daysHeader}<th>小計</th>
+              ${daysHeader}<th>小計</th>
+              ${daysHeader}<th>小計</th>
+              ${daysHeader}<th>小計</th>
+            </tr>
+          </thead>
+          <tbody>${desRows}${totRow}${avgRow}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function exportWeeklyExcel(){
+  const range = getWeeklyRange();
+  const rows = [];
+  leaders.forEach(leader => {
+    const groupDes = designers.filter(d => getDesLeaderId(d) === leader.id);
+    const periodMails = mails.filter(m => {
+      const d = m.created_at?.slice(0,10) || '';
+      return m.count_perf!==false && d>=range.from && d<=range.to;
+    });
+    const absent = groupDes.filter(d=>isPersonOnLeave(d,range.from,range.to));
+    const present = groupDes.length - absent.length;
+    let totP=0,totI=0,totR=0;
+    groupDes.forEach(des => {
+      const ms = periodMails.filter(m=>m.designer===des);
+      const pts = ms.length;
+      const inn = ms.reduce((s,m)=>s+(m.inner_count||0),0);
+      const rev = ms.filter(m=>m.first_pass==='no').length;
+      if(!absent.includes(des)){totP+=pts;totI+=inn;totR+=rev;}
+      rows.push([leader.name, des, absent.includes(des)?'請假':'', pts, inn, rev, pts+inn+rev]);
+    });
+    if(groupDes.length) rows.push([leader.name,'─ 組內週平均 ─','',present?(totP/present).toFixed(1):'—',present?(totI/present).toFixed(1):'—',present?(totR/present).toFixed(1):'—',present?((totP+totI+totR)/present).toFixed(1):'—']);
+  });
+  const dateStr = new Date().toISOString().slice(0,10);
+  downloadExcel(`週報_${dateStr}.xls`,[{
+    name:'週報', title:`週報 ${range.label}`,
+    headers:['組別','設計師','狀態','點數(工單)','內審數','反修數','合計'],
+    rows
+  }]);
+  toast('✓ 週報匯出完成');
+}
+
+// ══ 休假日曆 ══════════════════════════════════════════
+const LEAVE_TYPES = {
+  special: {label:'特休', cls:'leave-special'},
+  sick:    {label:'病假', cls:'leave-sick'},
+  personal:{label:'事假', cls:'leave-personal'},
+  holiday: {label:'國定假日', cls:'leave-holiday'},
+  comp:    {label:'補休', cls:'leave-comp'},
+};
+
+function leaveMonthOffset(delta){
+  if(delta===0){ leaveCalYear=new Date().getFullYear(); leaveCalMonth=new Date().getMonth(); }
+  else{ leaveCalMonth+=delta; if(leaveCalMonth<0){leaveCalMonth=11;leaveCalYear--;} if(leaveCalMonth>11){leaveCalMonth=0;leaveCalYear++;} }
+  renderLeaveCalendar();
+}
+
+function populateLeavePerson(){
+  const sel = document.getElementById('leave-filter-person');
+  const sel2 = document.getElementById('leave-person');
+  const all = [...leaders.map(l=>({name:l.name, type:'leader'})), ...designers.map(d=>({name:d, type:'designer'}))];
+  if(sel) sel.innerHTML = '<option value="">全部人員</option>' + all.map(p=>`<option>${p.name}</option>`).join('');
+  if(sel2) sel2.innerHTML = all.map(p=>`<option>${p.name}</option>`).join('');
+}
+
+function renderLeaveCalendar(){
+  const filterPerson = document.getElementById('leave-filter-person')?.value || '';
+  const label = document.getElementById('leave-month-label');
+  if(label) label.textContent = `${leaveCalYear} 年 ${leaveCalMonth+1} 月`;
+
+  const firstDay = new Date(leaveCalYear, leaveCalMonth, 1);
+  const lastDay  = new Date(leaveCalYear, leaveCalMonth+1, 0);
+  const startDow = firstDay.getDay(); // 0=Sun
+
+  const calEl = document.getElementById('leave-calendar');
+  if(!calEl) return;
+
+  const today = new Date().toISOString().slice(0,10);
+  const fromStr = `${leaveCalYear}-${String(leaveCalMonth+1).padStart(2,'0')}-01`;
+  const toStr   = lastDay.toISOString().slice(0,10);
+
+  // Header row
+  const headers = ['日','一','二','三','四','五','六'].map(d=>
+    `<div class="cal-header-cell">${d}</div>`).join('');
+
+  // Pad before first day
+  let cells = headers;
+  const prevMonth = new Date(leaveCalYear, leaveCalMonth, 0);
+  for(let i=startDow-1;i>=0;i--){
+    const d = prevMonth.getDate()-i;
+    cells += `<div class="cal-day other-month"><div class="cal-day-num">${d}</div></div>`;
+  }
+
+  // Days in month
+  for(let day=1; day<=lastDay.getDate(); day++){
+    const dateStr = `${leaveCalYear}-${String(leaveCalMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const dow = new Date(leaveCalYear, leaveCalMonth, day).getDay();
+    const isToday = dateStr === today;
+    const isWeekend = dow===0||dow===6;
+    const dayLeaves = leaves.filter(lv => lv.start<=dateStr && lv.end>=dateStr
+      && (!filterPerson || lv.person===filterPerson));
+    const cls = ['cal-day', isToday?'today':'', isWeekend?'weekend':''].join(' ').trim();
+    const chips = dayLeaves.map(lv=>{
+      const lt = LEAVE_TYPES[lv.type]||LEAVE_TYPES.special;
+      return `<div class="leave-chip ${lt.cls}" onclick="editLeave('${lv.id}')" title="${lv.person} — ${lt.label}${lv.note?' ('+lv.note+')':''}">${lv.person}</div>`;
+    }).join('');
+    cells += `<div class="${cls}" onclick="openLeaveAdd('${dateStr}')">
+      <div class="cal-day-num">${day}</div>${chips}</div>`;
+  }
+
+  // Pad after last day
+  const remaining = (7 - (startDow + lastDay.getDate()) % 7) % 7;
+  for(let i=1;i<=remaining;i++) cells += `<div class="cal-day other-month"><div class="cal-day-num">${i}</div></div>`;
+
+  calEl.innerHTML = cells;
+
+  // Upcoming leaves list
+  const upcoming = document.getElementById('leave-upcoming');
+  if(upcoming){
+    const monthLeaves = leaves.filter(lv => lv.start<=toStr && lv.end>=fromStr
+      && (!filterPerson || lv.person===filterPerson))
+      .sort((a,b)=>a.start.localeCompare(b.start));
+    if(monthLeaves.length){
+      upcoming.innerHTML = `<div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:12px 18px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--text3);">本月休假紀錄（${monthLeaves.length} 筆）</div>
+        ${monthLeaves.map(lv=>{
+          const lt=LEAVE_TYPES[lv.type]||LEAVE_TYPES.special;
+          const dur = Math.round((new Date(lv.end)-new Date(lv.start))/86400000)+1;
+          const durLabel = lv.partial_hours ? `${lv.partial_hours}hr` : `${dur}天`;
+          return `<div class="upcoming-leave-item">
+            <span class="leave-badge ${lt.cls}">${lt.label}</span>
+            <span style="font-weight:500;min-width:80px">${lv.person}</span>
+            <span style="font-family:var(--mono);font-size:12px;color:var(--text2)">${lv.start}${lv.start!==lv.end?' ～ '+lv.end:''} (${durLabel})</span>
+            <span style="font-size:12px;color:var(--text3);flex:1">${lv.partial_hours_note||lv.note||''}</span>
+            <button class="btn btn-secondary btn-sm" onclick="editLeave('${lv.id}')">編輯</button>
+          </div>`;
+        }).join('')}
+      </div>`;
+    } else {
+      upcoming.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px;">本月無休假紀錄</div>`;
+    }
+  }
+}
+
+function toggleLeavePartial(checked){
+  document.getElementById('leave-partial-row').style.display = checked ? 'block' : 'none';
+}
+function openLeaveAdd(dateStr){
+  leaveEditId = null;
+  document.getElementById('leave-modal-title').textContent = '新增休假';
+  document.getElementById('leave-start').value = dateStr||new Date().toISOString().slice(0,10);
+  document.getElementById('leave-end').value   = dateStr||new Date().toISOString().slice(0,10);
+  document.getElementById('leave-type').value  = 'special';
+  document.getElementById('leave-note').value  = '';
+  document.getElementById('leave-partial').checked = false;
+  document.getElementById('leave-partial-row').style.display = 'none';
+  document.getElementById('leave-hours').value = '';
+  document.getElementById('leave-hours-note').value = '';
+  document.getElementById('leave-delete-btn').style.display='none';
+  populateLeavePerson();
+  document.getElementById('leave-modal').classList.add('open');
+}
+function editLeave(id){
+  const lv = leaves.find(x=>x.id===id); if(!lv) return;
+  leaveEditId = id;
+  document.getElementById('leave-modal-title').textContent = '編輯休假';
+  populateLeavePerson();
+  document.getElementById('leave-person').value = lv.person;
+  document.getElementById('leave-start').value  = lv.start;
+  document.getElementById('leave-end').value    = lv.end;
+  document.getElementById('leave-type').value   = lv.type;
+  document.getElementById('leave-note').value   = lv.note||'';
+  // restore partial hours
+  const isPartial = !!(lv.partial_hours);
+  document.getElementById('leave-partial').checked = isPartial;
+  document.getElementById('leave-partial-row').style.display = isPartial ? 'block' : 'none';
+  document.getElementById('leave-hours').value = lv.partial_hours||'';
+  document.getElementById('leave-hours-note').value = lv.partial_hours_note||'';
+  document.getElementById('leave-delete-btn').style.display='';
+  document.getElementById('leave-modal').classList.add('open');
+}
+function closeLeaveModal(){ document.getElementById('leave-modal').classList.remove('open'); leaveEditId=null; }
+function saveLeave(){
+  const person = document.getElementById('leave-person').value;
+  const start  = document.getElementById('leave-start').value;
+  const end    = document.getElementById('leave-end').value;
+  const type   = document.getElementById('leave-type').value;
+  const note   = document.getElementById('leave-note').value;
+  if(!person||!start||!end){ toast('⚠ 請填寫人員與日期'); return; }
+  if(start>end){ toast('⚠ 結束日期不可早於開始日期'); return; }
+  const isPartial = document.getElementById('leave-partial').checked;
+  const partial_hours = isPartial ? (parseFloat(document.getElementById('leave-hours').value)||0) : 0;
+  const partial_hours_note = isPartial ? document.getElementById('leave-hours-note').value : '';
+  const entry = { id: leaveEditId||'lv-'+Date.now(), person, start, end, type, note, partial_hours, partial_hours_note };
+  if(leaveEditId){
+    const idx = leaves.findIndex(x=>x.id===leaveEditId);
+    if(idx>=0) leaves[idx]=entry; else leaves.push(entry);
+  } else {
+    leaves.push(entry);
+  }
+  saveLeaves(); closeLeaveModal(); renderLeaveCalendar();
+  toast('✓ 休假已儲存');
+}
+function deleteLeave(){
+  if(!confirm('確定刪除此休假紀錄？')) return;
+  leaves = leaves.filter(x=>x.id!==leaveEditId);
+  saveLeaves(); closeLeaveModal(); renderLeaveCalendar();
+  toast('✓ 休假已刪除');
+}
+
+
+// ══ LEVEL / CATEGORY SELECTS ═════════════════════════════
+function populateLevelCategorySelects(){
+  const lvls = mailLevels.length ? mailLevels : DEFAULT_LEVELS;
+  const cats = mailCategories.length ? mailCategories : DEFAULT_CATEGORIES;
+  const lOpts = lvls.map(v=>`<option value="${v}">${v}</option>`).join('');
+  const cOpts = cats.map(v=>`<option value="${v}">${v}</option>`).join('');
+  ['f-level','edit-level'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    const prev=el.value;
+    el.innerHTML='<option value="">— 選擇等級 —</option>'+lOpts;
+    if(prev) el.value=prev;
+  });
+  // Category: update hidden inputs + datalists
+  updateCatDatalist();
+  // f-level select (not searchable yet)
+
+  // Update settings page lists if visible
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  if(ap==='settings') renderLevelCategorySettings();
+}
+
+function renderLevelCategorySettings(){
+  const lvls = mailLevels.length ? mailLevels : DEFAULT_LEVELS;
+  const cats = mailCategories.length ? mailCategories : DEFAULT_CATEGORIES;
+  const lEl = document.getElementById('levels-list');
+  const cEl = document.getElementById('categories-list');
+  const lCount = document.getElementById('level-count');
+  const cCount = document.getElementById('cat-count');
+  if(lCount) lCount.textContent = lvls.length+' 項';
+  if(cCount) cCount.textContent = cats.length+' 項';
+  if(lEl) lEl.innerHTML = lvls.map((v,i)=>`
+    <div class="irow">
+      <span class="ilabel">${v}</span>
+      <button class="btn btn-danger btn-sm" onclick="removeLevel(${i})">刪除</button>
+    </div>`).join('');
+  if(cEl) cEl.innerHTML = cats.map((v,i)=>`
+    <div class="irow">
+      <span class="ilabel">${v}</span>
+      <button class="btn btn-danger btn-sm" onclick="removeCategory(${i})">刪除</button>
+    </div>`).join('');
+}
+
+function addLevel(){
+  const v=document.getElementById('new-level').value.trim();
+  if(!v){toast('⚠ 請輸入等級名稱');return;}
+  if(!mailLevels.length) mailLevels=[...DEFAULT_LEVELS];
+  if(mailLevels.includes(v)){toast('⚠ 已存在');return;}
+  mailLevels.push(v); saveLevels();
+  document.getElementById('new-level').value='';
+  renderLevelCategorySettings(); populateLevelCategorySelects();
+  toast('✓ 已新增等級：'+v);
+}
+function removeLevel(i){
+  if(!mailLevels.length) mailLevels=[...DEFAULT_LEVELS];
+  if(!confirm('確定刪除「'+mailLevels[i]+'」？'))return;
+  mailLevels.splice(i,1); saveLevels();
+  renderLevelCategorySettings(); populateLevelCategorySelects();
+  toast('✓ 已刪除');
+}
+function addCategory(){
+  const v=document.getElementById('new-cat').value.trim();
+  if(!v){toast('⚠ 請輸入類別名稱');return;}
+  if(!mailCategories.length) mailCategories=[...DEFAULT_CATEGORIES];
+  if(mailCategories.includes(v)){toast('⚠ 已存在');return;}
+  mailCategories.push(v); saveCategories();
+  document.getElementById('new-cat').value='';
+  renderLevelCategorySettings(); populateLevelCategorySelects();
+  toast('✓ 已新增類別：'+v);
+}
+function removeCategory(i){
+  if(!mailCategories.length) mailCategories=[...DEFAULT_CATEGORIES];
+  if(!confirm('確定刪除「'+mailCategories[i]+'」？'))return;
+  mailCategories.splice(i,1); saveCategories();
+  renderLevelCategorySettings(); populateLevelCategorySelects();
+  toast('✓ 已刪除');
+}
+
+// ══ MONTH SUMMARY ═════════════════════════════════════════
+function renderMonthSum(){
+  const yr  = parseInt(document.getElementById('ms-year')?.value)  || new Date().getFullYear();
+  const mon = parseInt(document.getElementById('ms-month')?.value) || new Date().getMonth()+1;
+  const grp = document.getElementById('ms-group')?.value || '';
+
+  const pad = n=>String(n).padStart(2,'0');
+  const prefix = `${yr}-${pad(mon)}`;
+
+  let data = mails.filter(m => (m.created_at||'').slice(0,7)===prefix);
+  if(grp) data = data.filter(m => getDesLeaderId(m.designer)===grp);
+
+  function buildRows(keyFn, dimLabel){
+    const map={};
+    data.forEach(m=>{
+      const k=keyFn(m)||'（未填）';
+      if(!map[k]) map[k]={cnt:0,ext:0,hrs:0,mails:[]};
+      map[k].cnt++;
+      map[k].ext += (m.gd_extend||0);
+      map[k].hrs += totalH(m);
+      map[k].mails.push(m);
+    });
+    return Object.entries(map).sort((a,b)=>b[1].cnt-a[1].cnt).map(([k,v])=>{
+      const rate = v.cnt>0 ? Math.round(v.ext/v.cnt*100)+'%' : '—';
+      const idx = Object.keys(map).indexOf(k);
+      return`<tr style="cursor:pointer;" onclick="openMsDetailByIdx(${idx},'${dimLabel}')"
+             onmouseover="this.style.background='rgba(79,142,247,.08)'" onmouseout="this.style.background=''">
+        <td style="color:var(--accent);text-decoration:underline;text-underline-offset:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${k}">${k} <span style="font-size:10px;opacity:.6">▶ 查看工單</span></td>
+        <td style="text-align:right;font-family:var(--mono)">${v.cnt}</td>
+        <td style="text-align:right;font-family:var(--mono)">${v.ext}</td>
+        <td style="text-align:right;font-family:var(--mono);color:${v.ext>0?'var(--amber)':'var(--green)'}">${rate}</td>
+        <td style="text-align:right;font-family:var(--mono);color:var(--accent)">${v.hrs.toFixed(1)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // store for detail lookup (keyed by index for safe onclick)
+  window._msSummaryData   = data;
+  window._msSummaryLevelMap = window._msSummaryLevelMapTmp || {};
+  window._msSummaryCatMap   = window._msSummaryCatMapTmp  || {};
+
+  // build level map now
+  const lvlMap={}, catMap={};
+  data.forEach(m=>{
+    const lk=m.mail_level||'（未填）';  if(!lvlMap[lk]) lvlMap[lk]=[];  lvlMap[lk].push(m);
+    const ck=m.mail_category||'（未填）'; if(!catMap[ck]) catMap[ck]=[]; catMap[ck].push(m);
+  });
+  window._msSummaryLevelMap = lvlMap;
+  window._msSummaryCatMap   = catMap;
+
+  const lvlTb = document.getElementById('ms-level-tbody');
+  const catTb = document.getElementById('ms-cat-tbody');
+  const empty = '<tr><td colspan="5" class="empty">本月無資料</td></tr>';
+  if(lvlTb) lvlTb.innerHTML = buildRows(m=>m.mail_level||'（未填）','等級')||empty;
+  if(catTb) catTb.innerHTML = buildRows(m=>m.mail_category||'（未填）','類別')||empty;
+  closeMsDetail();
+}
+
+function openMsDetailByIdx(idx, dimLabel){
+  const mapObj = dimLabel==='等級' ? window._msSummaryLevelMap : window._msSummaryCatMap;
+  if(!mapObj) return;
+  const keys = Object.keys(mapObj);
+  const key = keys[idx];
+  if(key === undefined) return;
+  const matched = mapObj[key] || [];
+  openMsDetailRender(key, dimLabel, matched);
+}
+
+function openMsDetail(key, dimLabel){
+  const mapObj = dimLabel==='等級' ? window._msSummaryLevelMap : window._msSummaryCatMap;
+  const matched = (mapObj && mapObj[key]) || [];
+  openMsDetailRender(key, dimLabel, matched);
+}
+
+function openMsDetailRender(key, dimLabel, matched){
+  document.getElementById('ms-detail-title').textContent =
+    `${dimLabel}：${key}　共 ${matched.length} 筆工單`;
+
+  const tb = document.getElementById('ms-detail-tbody');
+  tb.innerHTML = matched.length ? matched.map(m=>`<tr>
+    <td class="mid" style="white-space:nowrap">${m.id}</td>
+    <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${m.subject}">${m.subject}</td>
+    <td>${m.designer}</td>
+    <td style="font-size:11px;color:var(--text2)">${lName(m.leader)}</td>
+    <td>${bHtml(m.status)}</td>
+    <td class="num" style="color:var(--accent)">${totalH(m).toFixed(1)}h</td>
+    <td class="num">${m.gd_extend>0?`<span class="rp">${m.gd_extend}</span>`:'<span class="ind-na">—</span>'}</td>
+    <td style="font-size:12px;white-space:nowrap">${m.due_date||'—'}</td>
+  </tr>`).join('') : '<tr><td colspan="8" class="empty">無資料</td></tr>';
+
+  const panel = document.getElementById('ms-detail-panel');
+  panel.style.display = 'block';
+  setTimeout(()=>panel.scrollIntoView({behavior:'smooth',block:'start'}), 50);
+}
+
+function closeMsDetail(){
+  const panel = document.getElementById('ms-detail-panel');
+  if(panel) panel.style.display='none';
+}
+
+function initMonthSumFilters(){
+  const yrEl=document.getElementById('ms-year');
+  const monEl=document.getElementById('ms-month');
+  const grpEl=document.getElementById('ms-group');
+  if(!yrEl) return;
+  const now=new Date();
+  // Years
+  const years=[...new Set(mails.map(m=>(m.created_at||'').slice(0,4)).filter(Boolean))];
+  if(!years.includes(String(now.getFullYear()))) years.push(String(now.getFullYear()));
+  years.sort().reverse();
+  yrEl.innerHTML=years.map(y=>`<option value="${y}"${y==now.getFullYear()?'selected':''}>${y}年</option>`).join('');
+  // Months
+  monEl.innerHTML=[...Array(12)].map((_,i)=>`<option value="${i+1}"${i+1==now.getMonth()+1?'selected':''}>${i+1}月</option>`).join('');
+  // Groups
+  if(grpEl) grpEl.innerHTML='<option value="">全部組別</option>'+leaders.map(l=>`<option value="${l.id}">${l.name}</option>`).join('');
+  renderMonthSum();
+}
+
+function exportMonthSumExcel(){
+  const yr  = document.getElementById('ms-year')?.value||'';
+  const mon = document.getElementById('ms-month')?.value||'';
+  const pad = n=>String(n).padStart(2,'0');
+  const prefix = yr&&mon?`${yr}-${pad(mon)}`:'';
+  const data = mails.filter(m=>(m.created_at||'').slice(0,7)===prefix);
+
+  function buildExcelRows(keyFn){
+    const map={};
+    data.forEach(m=>{const k=keyFn(m)||'（未填）';if(!map[k])map[k]={cnt:0,ext:0,hrs:0};map[k].cnt++;map[k].ext+=(m.gd_extend||0);map[k].hrs+=totalH(m);});
+    return Object.entries(map).sort((a,b)=>b[1].cnt-a[1].cnt).map(([k,v])=>[k,v.cnt,v.ext,v.cnt>0?Math.round(v.ext/v.cnt*100)+'%':'—',v.hrs.toFixed(1)]);
+  }
+  downloadExcel(`月彙整_${yr}${mon}.xls`,[
+    {name:'等級彙整',title:`${yr}年${mon}月 等級彙整`,headers:['等級','工單數','外部反修單數','反修率','總工時h'],rows:buildExcelRows(m=>m.mail_level)},
+    {name:'類別彙整',title:`${yr}年${mon}月 類別彙整`,headers:['類別','工單數','外部反修單數','反修率','總工時h'],rows:buildExcelRows(m=>m.mail_category)},
+  ]);
+  toast('✓ 月彙整匯出完成');
+}
+
+// ══ INIT ══════════════════════════════════════════════
+document.getElementById('f-due').valueAsDate = new Date(Date.now()+86400000);
+// Populate level/category selects (will be updated when Firebase data loads)
+mailLevels = [...DEFAULT_LEVELS];
+mailCategories = [...DEFAULT_CATEGORIES];
+populateLevelCategorySelects();
+renderLoginBtns();
+
+// 立即檢查，若組長空白就自動寫入預設（並在Firebase回傳後更新）
+setTimeout(()=>{
+  if(!leaders||leaders.length===0){
+    leaders=[...DEFAULT_LEADERS]; saveL(); renderLoginBtns();
+  }
+},0);
+
+if(curLeader){
+  document.getElementById('ls').classList.add('hidden');
+  applyChip();showAdminNav();pendLeader=curLeader;
+}
+</script>
+</body>
+</html>
