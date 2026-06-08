@@ -530,14 +530,14 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div class="tw"><table><thead><tr>
       <th>工單數</th><th>ID</th><th>主旨</th><th>專案</th><th>設計師</th><th>組長</th>
       <th>截止日</th><th>狀態</th>
-      <th title="D-2標準">D-2</th>
-      <th title="內審誤植數">誤植</th>
-      <th title="內審次數">內審</th>
-      <th title="1次過關">1過</th>
-      <th title="GD失誤數">GD失</th>
-      <th title="GD延單數">沿單</th>
-      <th title="PIC校稿數">PIC校</th>
-      <th title="PIC反修點數">PIC反</th>
+      <th title="D-2標準">D-2達標</th>
+      <th title="內審誤植數">誤植數</th>
+      <th title="內審次數">內審數</th>
+      <th title="1次過關">1次過關</th>
+      <th title="GD失誤數">GD失誤</th>
+      <th title="GD延單數">GD延單</th>
+      <th title="PIC校稿數">PIC校稿</th>
+      <th title="PIC反修點數">PIC反修</th>
       <th>總工時</th><th>操作</th>
     </tr></thead><tbody id="list-tbody"></tbody></table></div>
   </div>
@@ -1227,13 +1227,25 @@ const pBundle = name=>projects.find(p=>p.name===name)||null;
 const totalH  = m=>+(((m.hours||0)+(m.revHours||0)+(m.commHours||0)+(m.meetHours||0)).toFixed(2));
 const bundleTotal = p=>+(((p.hours||0)+(p.revHours||0)+(p.commHours||0)+(p.extRevHours||0)).toFixed(2));
 
-// ══ FIREBASE 讀寫 ═════════════════════════════════════
-// 寫入 Firebase（每個資料表單獨節點）
-let _skipNextDesMetaUpdate = false;  // 專門防止 designers_meta 寫入後立即觸發 listener
+// ══ FIREBASE 讀寫（安全版）════════════════════════════
+// 設計原則：
+//   1. 空值保護：data 是空陣列/空物件時拒絕寫入，避免誤覆蓋
+//   2. mails 改用 push key 逐筆存放，永不全量覆蓋
+//   3. 其他設定類資料才用 set（量小、可重建）
+//   4. _writing flag 防止自己的寫入觸發 listener 回衝
 
+let _skipNextDesMetaUpdate = false;
+
+// 通用設定寫入（leaders / designers / projects / leaves / meta）
 function fbWrite(table, data) {
-  _writing[table] = true;
+  // 空值保護：重要資料表不允許寫入空陣列
+  const safetyTables = ['leaders','designers','projects'];
+  if(safetyTables.includes(table)){
+    const isEmpty = Array.isArray(data) ? data.length===0 : !data || Object.keys(data).length===0;
+    if(isEmpty){ console.warn(`fbWrite: blocked empty write to ${table}`); return; }
+  }
   if (table === 'designers_meta') _skipNextDesMetaUpdate = true;
+  _writing[table] = true;
   db.ref('tracker/' + table).set(data).then(() => {
     setTimeout(() => { _writing[table] = false; }, 500);
   }).catch(err => {
@@ -1244,12 +1256,39 @@ function fbWrite(table, data) {
   });
 }
 
-function saveMails()    { fbWrite('mails',          mails); }
+// mails 專用：逐筆用 mail.id 當 key 寫入，永不全量覆蓋
+// 結構：tracker/mails/{mailId}: {...mailData}
+function saveMails() {
+  if(!mails || mails.length === 0) return;
+  const updates = {};
+  mails.forEach(m => {
+    if(m && m.id) updates['tracker/mails/' + m.id] = m;
+  });
+  _writing.mails = true;
+  db.ref().update(updates).then(() => {
+    setTimeout(() => { _writing.mails = false; }, 500);
+  }).catch(err => {
+    _writing.mails = false;
+    console.error('mails 寫入失敗:', err);
+    toast('⚠ 儲存失敗：' + err.message);
+  });
+}
+
+// 單筆刪除 mail（取代整包覆蓋）
+function deleteMail(id) {
+  _writing.mails = true;
+  db.ref('tracker/mails/' + id).remove().then(() => {
+    setTimeout(() => { _writing.mails = false; }, 500);
+  }).catch(err => {
+    _writing.mails = false;
+    toast('⚠ 刪除失敗：' + err.message);
+  });
+}
+
 function saveL()        { fbWrite('leaders',        leaders); }
 function saveD()        { fbWrite('designers',      designers); }
 function saveP()        { fbWrite('projects',       projects); }
 function saveDesMeta(){
-  // Store as array (indexed by designers[]) to avoid Firebase key restrictions on # $ . etc.
   const arr = designers.map(d => ({ leaderId: designers_meta[d]?.leaderId || '' }));
   fbWrite('designers_meta', arr);
 }
@@ -1262,7 +1301,17 @@ function saveCategories(){ fbWrite('mail_categories', mailCategories); }
 db.ref('tracker/mails').on('value', snap => {
   if (_writing.mails) return;
   const val = snap.val();
-  mails = val ? (Array.isArray(val) ? val : Object.values(val)) : [];
+  if(!val){ mails=[]; onMailsUpdated(); return; }
+  // 支援兩種格式：
+  // 新格式：{ mailId: {...}, mailId2: {...} }（用 mail.id 當 key）
+  // 舊格式：[{...}, {...}]（舊版 array）
+  if(Array.isArray(val)){
+    mails = val.filter(Boolean);
+  } else {
+    mails = Object.values(val).filter(Boolean);
+  }
+  // 確保每筆都有 id
+  mails.forEach(m => { if(!m.id) m.id = Object.keys(val).find(k=>val[k]===m)||''; });
   onMailsUpdated();
 });
 
@@ -1807,10 +1856,17 @@ function deleteMail(id){
   const m=mails.find(x=>x.id===id);
   if(!m)return;
   if(!confirm(`確定刪除「${m.subject}」？`))return;
-  mails=mails.filter(x=>x.id!==id);
-  saveMails();
-  closeMo();
-  toast('✓ 已刪除');
+  // 直接從 Firebase 刪除該筆，不影響其他工單
+  _writing.mails = true;
+  db.ref('tracker/mails/'+id).remove().then(()=>{
+    mails=mails.filter(x=>x.id!==id);
+    setTimeout(()=>{ _writing.mails=false; },500);
+    closeMo(); renderList(); renderKanban();
+    toast('✓ 已刪除');
+  }).catch(err=>{
+    _writing.mails=false;
+    toast('⚠ 刪除失敗：'+err.message);
+  });
 }
 
 function saveMo(){
