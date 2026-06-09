@@ -62,7 +62,7 @@ tr:last-child td{border-bottom:none;}
 tr:hover td{background:rgba(255,255,255,.02);}
 .mid{font-family:var(--mono);font-size:12px;color:var(--text2);}
 .sc{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start;}
+.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;align-items:start;}
 .kcol{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;}
 .khead{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .klabel{font-family:var(--mono);font-size:11px;letter-spacing:.06em;}
@@ -381,8 +381,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <button class="nav-btn admin-only" id="nav-settings" onclick="goPage('settings',this)">⚙ 設定</button>
   </nav>
   <div class="topbar-right">
-    <span class="badge-count" id="wip-count">0</span>
-    <span style="font-size:12px;color:var(--text3)">製作中</span>
+
     <!-- Firebase 即時連線狀態 -->
     <div class="fb-status">
       <div class="fb-dot" id="fb-dot"></div>
@@ -502,10 +501,11 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <select class="fsel" id="kanban-filter" onchange="renderKanban()"><option value="">全部設計師</option></select>
   </div>
   <div class="kanban">
-    <div class="kcol"><div class="khead"><span class="klabel">預先登記</span><span class="kcount" id="kc-pending">0</span></div><div class="kbody" id="k-pending"></div></div>
-    <div class="kcol"><div class="khead"><span class="klabel" style="color:var(--accent)">內部反修中</span><span class="kcount" id="kc-wip">0</span></div><div class="kbody" id="k-wip"></div></div>
-    <div class="kcol"><div class="khead"><span class="klabel" style="color:var(--green)">已完成</span><span class="kcount" id="kc-done">0</span></div><div class="kbody" id="k-done"></div></div>
-    <div class="kcol"><div class="khead"><span class="klabel" style="color:var(--amber)">外部反修中</span><span class="kcount" id="kc-revision">0</span></div><div class="kbody" id="k-revision"></div></div>
+    <div class="kcol" ondragover="event.preventDefault()" ondrop="kanbanDrop(event,'pending')"><div class="khead"><span class="klabel">預先登記</span><span class="kcount" id="kc-pending">0</span></div><div class="kbody" id="k-pending"></div></div>
+    <div class="kcol" ondragover="event.preventDefault()" ondrop="kanbanDrop(event,'wip')"><div class="khead"><span class="klabel" style="color:var(--accent)">內部反修中</span><span class="kcount" id="kc-wip">0</span></div><div class="kbody" id="k-wip"></div></div>
+    <div class="kcol" ondragover="event.preventDefault()" ondrop="kanbanDrop(event,'done')"><div class="khead"><span class="klabel" style="color:var(--green)">已完成</span><span class="kcount" id="kc-done">0</span></div><div class="kbody" id="k-done"></div></div>
+    <div class="kcol" ondragover="event.preventDefault()" ondrop="kanbanDrop(event,'revision')"><div class="khead"><span class="klabel" style="color:var(--amber)">外部反修中</span><span class="kcount" id="kc-revision">0</span></div><div class="kbody" id="k-revision"></div></div>
+    <div class="kcol" ondragover="event.preventDefault()" ondrop="kanbanDrop(event,'closed')"><div class="khead"><span class="klabel" style="color:var(--text3)">結案</span><span class="kcount" id="kc-closed">0</span></div><div class="kbody" id="k-closed"></div></div>
   </div>
 </div>
 
@@ -682,15 +682,12 @@ tr:hover td{background:rgba(255,255,255,.02);}
         <thead><tr>
           <th>設計師</th><th>組別</th>
           <th title="納入績效工單數">工單數</th>
-          <th title="總工時">工時h</th>
-          <th title="D-2標準達標數 / 達標率">D-2 達標</th>
-          <th title="GD失誤數 / 占比">GD失誤</th>
-          <th title="GD延單數 / 占比">GD延單</th>
+          <th title="總工時（含DC）">總工時</th>
+          <th title="GD延單數 / 延單率">GD延單率</th>
+          <th title="GD失誤數 / 失誤率">GD失誤率</th>
+          <th title="1次過關數 / 1次過關率">1次過關率</th>
+          <th title="D-2達標數 / 達標率">D-2達標率</th>
           <th title="個人內審 ≥2 修改單數 / 內審率">內審率</th>
-          <th title="內審誤植數 / 誤植率">誤植率</th>
-          <th title="1次過關數 / 1次過關率">1過率</th>
-          <th title="PIC校稿數">PIC校</th>
-          <th title="PIC反修點數">PIC反</th>
         </tr></thead>
         <tbody id="perf-tbody"></tbody>
       </table>
@@ -700,21 +697,21 @@ tr:hover td{background:rgba(255,255,255,.02);}
   <!-- 長條圖區 -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
     <div class="card">
-      <div class="card-title">GD失誤率 排名（由高到低）</div>
-      <div class="bar-chart" id="perf-bar-gd-error"></div>
+      <div class="card-title">GD延單率 <span style="font-size:10px;font-family:var(--mono);color:var(--text3)">▲ 越高越差（紅）</span></div>
+      <div class="bar-chart" id="perf-bar-gd-extend"></div>
     </div>
     <div class="card">
-      <div class="card-title">1次過關率 排名（由高到低）</div>
-      <div class="bar-chart" id="perf-bar-first-pass"></div>
+      <div class="card-title">GD失誤率 <span style="font-size:10px;font-family:var(--mono);color:var(--text3)">▲ 越高越差（紅）</span></div>
+      <div class="bar-chart" id="perf-bar-gd-error"></div>
     </div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
     <div class="card">
-      <div class="card-title">內審率 排名（由高到低）</div>
-      <div class="bar-chart" id="perf-bar-inner"></div>
+      <div class="card-title">1次過關率 <span style="font-size:10px;font-family:var(--mono);color:var(--text3)">▲ 越高越好（綠）</span></div>
+      <div class="bar-chart" id="perf-bar-first-pass"></div>
     </div>
     <div class="card">
-      <div class="card-title">D-2 達標率 排名（由高到低）</div>
+      <div class="card-title">D-2達標率 <span style="font-size:10px;font-family:var(--mono);color:var(--text3)">▲ 越高越好（綠）</span></div>
       <div class="bar-chart" id="perf-bar-d2"></div>
     </div>
   </div>
@@ -910,6 +907,20 @@ tr:hover td{background:rgba(255,255,255,.02);}
         <button class="btn btn-primary btn-sm" onclick="addCategory()">新增</button>
       </div>
     </div>
+    <!-- 更改管理者密碼 -->
+    <div class="ss full">
+      <div class="sst"><span>管理者密碼</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:flex-end;">
+        <div class="field"><label>目前密碼</label><input type="password" id="pw-old" placeholder="輸入目前密碼"></div>
+        <div class="field"><label>新密碼</label><input type="password" id="pw-new" placeholder="輸入新密碼（至少6碼）"></div>
+        <div class="field"><label>確認新密碼</label><input type="password" id="pw-confirm" placeholder="再次輸入新密碼"></div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:10px;align-items:center;">
+        <button class="btn btn-primary btn-sm" onclick="changeAdminPassword()">🔒 更新密碼</button>
+        <span id="pw-change-msg" style="font-family:var(--mono);font-size:12px;"></span>
+      </div>
+    </div>
+
     <div class="ss full">
       <div class="sst"><span>資料備份 / 還原</span></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -1154,7 +1165,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
 // ║  Firebase 即時共編版 — 所有資料存於 Firebase，全裝置即時同步         ║
 // ╚══════════════════════════════════════════════════════════════════╝
 
-const ADMIN_PASSWORD = 'admin1234';
+let ADMIN_PASSWORD_CURRENT = 'admin1234'; // updated from Firebase on load after init
 
 // ── Firebase 設定 ──────────────────────────────────
 const firebaseConfig = {
@@ -1529,7 +1540,7 @@ function unlockLogin(){ const b=document.getElementById('login-confirm'); b.styl
 function lockLogin()  { const b=document.getElementById('login-confirm'); b.style.opacity='.4'; b.style.pointerEvents='none'; }
 function openPw()     { document.getElementById('pw-input').value=''; document.getElementById('pw-err').textContent=''; document.getElementById('pwo').classList.add('open'); setTimeout(()=>document.getElementById('pw-input').focus(),80); }
 function cancelPw()   { document.getElementById('pwo').classList.remove('open'); document.querySelectorAll('.lbtn').forEach(b=>b.classList.remove('sel')); pendLeader=null; lockLogin(); }
-function submitPw()   { const v=document.getElementById('pw-input').value; if(v===ADMIN_PASSWORD){document.getElementById('pwo').classList.remove('open');unlockLogin();}else{document.getElementById('pw-err').textContent='密碼錯誤';document.getElementById('pw-input').value='';document.getElementById('pw-input').focus();} }
+function submitPw()   { const v=document.getElementById('pw-input').value; if(v===ADMIN_PASSWORD_CURRENT){document.getElementById('pwo').classList.remove('open');unlockLogin();}else{document.getElementById('pw-err').textContent='密碼錯誤';document.getElementById('pw-input').value='';document.getElementById('pw-input').focus();} }
 function confirmLogin(){ if(!pendLeader)return; curLeader=pendLeader; localStorage.setItem('curLeader',curLeader); document.getElementById('ls').classList.add('hidden'); applyChip(); showAdminNav(); toast(curLeader==='__admin__'?'🛡️ 管理者模式':'歡迎，'+lName(curLeader)); }
 function applyChip()  { const c=document.getElementById('user-chip'),l=document.getElementById('chip-label'); if(!c)return; if(curLeader==='__admin__'){c.classList.add('admin');l.textContent='🛡️ 管理者';}else{c.classList.remove('admin');l.textContent=lName(curLeader)||'—';} }
 function showAdminNav(){ 
@@ -1544,6 +1555,7 @@ function goPage(p,btn){
   document.querySelectorAll('.nav-btn').forEach(e=>e.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
   if(btn) btn.classList.add('active');
+  localStorage.setItem('lastPage', p); // 記住當前頁，重整後恢復
   if(p==='board')     renderKanban();
   if(p==='list')      renderList();
   if(p==='dispatch')  renderToday();
@@ -1675,12 +1687,14 @@ function renderToday(){
 function renderKanban(){
   const f = document.getElementById('kanban-filter').value;
   const data = f ? mails.filter(m=>m.designer===f) : mails;
-  ['pending','wip','done','revision'].forEach(col=>{
+  ['pending','wip','done','revision','closed'].forEach(col=>{
     const items = data.filter(m=>m.status===col);
     document.getElementById('kc-'+col).textContent = items.length;
     document.getElementById('k-'+col).innerHTML = items.length ? items.map(m=>{
       const mine = isMyDes(m.designer);
-      return `<div class="kcard${mine?' my-team':''}" onclick="openEdit('${m.id}')">
+      return `<div class="kcard${mine?' my-team':''}" draggable="true"
+        ondragstart="kanbanDragStart(event,'${m.id}')"
+        onclick="openEdit('${m.id}')">
         <div class="kid">${m.id}</div>
         <div class="ksub">${m.subject}</div>
         <div class="kmeta">
@@ -1694,6 +1708,27 @@ function renderKanban(){
       </div>`;
     }).join('') : '<div style="padding:8px 4px;font-size:12px;color:var(--text3);text-align:center">—</div>';
   });
+}
+
+let _dragMailId = null;
+function kanbanDragStart(e, mailId){
+  _dragMailId = mailId;
+  e.dataTransfer.effectAllowed = 'move';
+}
+function kanbanDrop(e, newStatus){
+  e.preventDefault();
+  if(!_dragMailId) return;
+  const m = mails.find(x=>x.id===_dragMailId);
+  if(!m || m.status===newStatus){ _dragMailId=null; return; }
+  m.status = newStatus;
+  // 直接更新單筆到 Firebase
+  _writing.mails = true;
+  db.ref('tracker/mails/'+m.id).update({status: newStatus}).then(()=>{
+    setTimeout(()=>{ _writing.mails=false; },500);
+  }).catch(err=>{ _writing.mails=false; toast('⚠ 更新失敗：'+err.message); });
+  renderKanban(); // 立即更新 UI，不等 Firebase
+  _dragMailId = null;
+  toast('✓ 已移至：'+SL[newStatus]);
 }
 
 // ══ LIST ══════════════════════════════════════════════
@@ -2072,15 +2107,24 @@ function renderPerf(){
   const totInner=rows.reduce((s,r)=>s+r.innerRev,0);
   const kpiEl=document.getElementById('perf-kpi');
   const totCntDC = rows.reduce((s,r)=>s+r.items.filter(m=>m.count_perf===true).length,0);
+  const totGdExt = rows.reduce((s,r)=>s+r.gdExt,0);
+  const gdExtRate = totCnt ? Math.round(totGdExt/totCnt*100) : 0;
+  const gdErrRate = totCnt ? Math.round(totGdErr/totCnt*100) : 0;
+  const fpRate    = totCnt ? Math.round(totFP/totCnt*100)    : 0;
+  const d2Rate    = totCnt ? Math.round(totD2/totCnt*100)    : 0;
+  const innerRate = totCnt ? Math.round(totInner/totCnt*100) : 0;
+  // 顏色：延單率/失誤率越高越紅；過關率/D2達標率/內審率越高越綠
+  const badColor = v => v>30?'sv-red':v>15?'sv-amber':'sv-green';
+  const goodColor = v => v>=80?'sv-green':v>=60?'sv-amber':'sv-red';
+  // 顏色規則：GD延單率/GD失誤率/內審率→固定紅；1次過關率/D-2達標率→固定綠；其他→藍
   if(kpiEl) kpiEl.innerHTML=[
-    {label:'工單數',val:totCnt,sub:`排除DC ${totCntDC}單`,color:'sv-blue'},
-    {label:'總工時（含DC）',val:totHours.toFixed(1)+'h',sub:'工時含DC工單',color:'sv-green'},
-    {label:'GD失誤率',val:totCnt?Math.round(totGdErr/totCnt*100)+'%':'—',sub:`失誤${totGdErr}次`,color:totGdErr?'sv-red':'sv-green'},
-    {label:'1次過關率',val:totCnt?Math.round(totFP/totCnt*100)+'%':'—',sub:`共${totFP}單`,color:'sv-purple'},
-    {label:'D-2達標率',val:totCnt?Math.round(totD2/totCnt*100)+'%':'—',sub:`達標${totD2}單`,color:'sv-blue'},
-    {label:'內審率',val:totCnt?Math.round(totInner/totCnt*100)+'%':'—',sub:`≥2修改${totInner}單`,color:'sv-amber'},
-    {label:'設計師數',val:desList.length,sub:'有工單',color:'sv-blue'},
-    {label:'組別數',val:[...new Set(desList.map(d=>getDesLeaderId(d)))].filter(Boolean).length,sub:'',color:'sv-purple'},
+    {label:'工單數',        val:totCnt,                    sub:`排除DC ${totCntDC}單`,   color:'sv-blue'},
+    {label:'總工時（含DC）',val:totHours.toFixed(1)+'h',   sub:'工時含DC工單',           color:'sv-blue'},
+    {label:'GD延單率',      val:totCnt?gdExtRate+'%':'—',  sub:`延單${totGdExt}單`,      color:'sv-red'},
+    {label:'GD失誤率',      val:totCnt?gdErrRate+'%':'—',  sub:`失誤${totGdErr}單`,      color:'sv-red'},
+    {label:'1次過關率',     val:totCnt?fpRate+'%':'—',     sub:`共${totFP}單`,           color:'sv-green'},
+    {label:'D-2達標率',     val:totCnt?d2Rate+'%':'—',     sub:`達標${totD2}單`,         color:'sv-green'},
+    {label:'內審率',        val:totCnt?innerRate+'%':'—',  sub:`≥2修改${totInner}單`,    color:'sv-red'},
   ].map(x=>`<div class="perf-card"><div class="perf-label">${x.label}</div><div class="perf-val ${x.color}">${x.val}</div><div class="perf-sub">${x.sub}</div></div>`).join('');
 
   // 大表
@@ -2097,14 +2141,11 @@ function renderPerf(){
           ${isDCm?'<span class="ind-bad" style="margin-right:4px">DC</span>':''}<span>${m.subject}</span>
         </td>
         <td style="font-family:var(--mono);font-size:12px;text-align:right">${totalH(m).toFixed(1)}h</td>
-        <td style="text-align:center">${d2Icon}</td>
-        <td style="font-family:var(--mono);font-size:12px;text-align:center">${m.gd_error||0}</td>
         <td style="font-family:var(--mono);font-size:12px;text-align:center">${m.gd_extend||0}</td>
-        <td style="font-size:11px;text-align:center">${(m.inner_count||0)>=2?'<span class="rp">內審'+(m.inner_count||0)+'次</span>':'<span class="ind-na">'+(m.inner_count||0)+'次</span>'}</td>
-        <td style="font-family:var(--mono);font-size:12px;text-align:center">${m.inner_miss||0}</td>
+        <td style="font-family:var(--mono);font-size:12px;text-align:center">${m.gd_error||0}</td>
         <td style="text-align:center">${fpIcon}</td>
-        <td style="font-family:var(--mono);font-size:12px;text-align:center">${m.pic_review||0}</td>
-        <td style="font-family:var(--mono);font-size:12px;text-align:center">${(m.pic_rev||0).toFixed?+(m.pic_rev||0).toFixed(2):m.pic_rev||0}</td>
+        <td style="text-align:center">${d2Icon}</td>
+        <td style="font-size:11px;text-align:center">${(m.inner_count||0)>=2?'<span class="rp">內審'+(m.inner_count||0)+'次</span>':'<span class="ind-na">'+(m.inner_count||0)+'次</span>'}</td>
         <td style="font-family:var(--mono);font-size:11px;text-align:center;white-space:nowrap">${m.due_date||'—'}</td>
       </tr>`;
     }).join('');
@@ -2115,36 +2156,30 @@ function renderPerf(){
       <td style="font-size:11px;color:var(--text3)">${r.leaderName}</td>
       <td class="mono">${r.cnt}<span style="font-size:9px;color:var(--text3)">${dcCount?` (+${dcCount}DC)`:''}</span></td>
       <td class="mono">${r.hours.toFixed(1)}</td>
-      <td class="mono">${r.d2pass} <span class="perf-rate ${r.cnt&&r.d2pass/r.cnt>=0.8?'good':'neutral'}">${r.pct(r.d2pass)}</span></td>
+      <td class="mono">${r.gdExt} <span class="perf-rate ${r.gdExt&&r.cnt?r.gdExt/r.cnt>0.2?'bad':'neutral':'good'}">${r.pct(r.gdExt)}</span></td>
       <td class="mono">${r.gdErr} <span class="perf-rate ${r.gdErr?'bad':'good'}">${r.pct(r.gdErr)}</span></td>
-      <td class="mono">${r.gdExt} <span class="perf-rate neutral">${r.pct(r.gdExt)}</span></td>
-      <td class="mono">${r.innerRev} <span class="perf-rate neutral">${r.pct(r.innerRev)}</span></td>
-      <td class="mono">${r.innerMiss} <span class="perf-rate ${r.innerMiss?'bad':'good'}">${r.cnt?Math.round(r.innerMiss/r.cnt*100)+'%':'—'}</span></td>
       <td class="mono">${r.fp} <span class="perf-rate ${r.cnt&&r.fp/r.cnt>=0.8?'good':'neutral'}">${r.pct(r.fp)}</span></td>
-      <td class="mono">${r.picR}</td>
-      <td class="mono">${r.picRev.toFixed?r.picRev.toFixed(2):r.picRev}</td>
+      <td class="mono">${r.d2pass} <span class="perf-rate ${r.cnt&&r.d2pass/r.cnt>=0.8?'good':'neutral'}">${r.pct(r.d2pass)}</span></td>
+      <td class="mono">${r.innerRev} <span class="perf-rate ${r.innerRev&&r.cnt?r.innerRev/r.cnt>0.3?'bad':'neutral':'good'}">${r.pct(r.innerRev)}</span></td>
     </tr>
     <tr id="perf-detail-${ri}" style="display:none;">
-      <td colspan="12" style="padding:0;background:var(--bg);">
+      <td colspan="9" style="padding:0;background:var(--bg);">
         <table style="width:100%;border-collapse:collapse;font-size:11px;">
           <tr style="background:var(--surface2);">
             <th style="padding:6px 24px;font-family:var(--mono);font-size:10px;color:var(--text3);text-align:left;min-width:180px">工單名稱</th>
             <th style="text-align:right;white-space:nowrap">工時h</th>
-            <th style="text-align:center;white-space:nowrap">D-2達標</th>
-            <th style="text-align:center;white-space:nowrap">GD失誤</th>
             <th style="text-align:center;white-space:nowrap">GD延單</th>
-            <th style="text-align:center;white-space:nowrap">內審次數</th>
-            <th style="text-align:center;white-space:nowrap">誤植數</th>
+            <th style="text-align:center;white-space:nowrap">GD失誤</th>
             <th style="text-align:center;white-space:nowrap">1次過關</th>
-            <th style="text-align:center;white-space:nowrap">PIC校稿數</th>
-            <th style="text-align:center;white-space:nowrap">PIC反修點數</th>
+            <th style="text-align:center;white-space:nowrap">D-2達標</th>
+            <th style="text-align:center;white-space:nowrap">內審次數</th>
             <th style="text-align:center;white-space:nowrap">預計完成日</th>
           </tr>
           ${detailRows}
         </table>
       </td>
     </tr>`;
-  }).join(''):'<tr><td colspan="12" class="empty">本期無資料</td></tr>';
+  }).join(''):'<tr><td colspan="9" class="empty">本期無資料</td></tr>';
 
   // 長條圖
   function renderPerfBar(elId, rowsFn, colorFn){
@@ -2158,20 +2193,43 @@ function renderPerf(){
           ${x.rate>0?`<span>${x.rateStr}</span>`:''}</div></div>
       </div>`).join('');
   }
+  // GD延單率：越高越紅
+  renderPerfBar('perf-bar-gd-extend',
+    rs=>rs.map(r=>({name:r.d,cnt:r.cnt,rate:r.cnt?r.gdExt/r.cnt*100:0,rateStr:r.pct(r.gdExt)})).sort((a,b)=>b.rate-a.rate),
+    v=>v>30?'var(--red)':v>15?'var(--amber)':'var(--green)');
+  // GD失誤率：越高越紅
   renderPerfBar('perf-bar-gd-error',
     rs=>rs.map(r=>({name:r.d,cnt:r.cnt,rate:r.cnt?r.gdErr/r.cnt*100:0,rateStr:r.pct(r.gdErr)})).sort((a,b)=>b.rate-a.rate),
     v=>v>20?'var(--red)':v>10?'var(--amber)':'var(--green)');
+  // 1次過關率：越高越綠
   renderPerfBar('perf-bar-first-pass',
     rs=>rs.map(r=>({name:r.d,cnt:r.cnt,rate:r.cnt?r.fp/r.cnt*100:0,rateStr:r.pct(r.fp)})).sort((a,b)=>b.rate-a.rate),
     v=>v>=80?'var(--green)':v>=60?'var(--amber)':'var(--red)');
-  renderPerfBar('perf-bar-inner',
-    rs=>rs.map(r=>({name:r.d,cnt:r.cnt,rate:r.cnt?r.innerRev/r.cnt*100:0,rateStr:r.pct(r.innerRev)})).sort((a,b)=>b.rate-a.rate),
-    v=>v>30?'var(--red)':v>15?'var(--amber)':'var(--green)');
+  // D-2達標率：越高越綠
   renderPerfBar('perf-bar-d2',
     rs=>rs.map(r=>({name:r.d,cnt:r.cnt,rate:r.cnt?r.d2pass/r.cnt*100:0,rateStr:r.pct(r.d2pass)})).sort((a,b)=>b.rate-a.rate),
     v=>v>=90?'var(--green)':v>=70?'var(--amber)':'var(--red)');
 }
 
+function changeAdminPassword(){
+  const oldPw   = (document.getElementById('pw-old')?.value||'').trim();
+  const newPw   = (document.getElementById('pw-new')?.value||'').trim();
+  const confirm2= (document.getElementById('pw-confirm')?.value||'').trim();
+  const msgEl   = document.getElementById('pw-change-msg');
+  const show = (msg, ok) => { if(msgEl){ msgEl.textContent=msg; msgEl.style.color=ok?'var(--green)':'var(--red)'; }};
+  if(!oldPw||!newPw||!confirm2){ alert('⚠ 請填寫全部欄位'); show('⚠ 請填寫全部欄位',false); return; }
+  if(oldPw !== ADMIN_PASSWORD_CURRENT){ alert('❌ 目前密碼錯誤，請重新輸入'); show('⚠ 目前密碼錯誤',false); return; }
+  if(newPw === oldPw){ alert('⚠ 新密碼不能與目前密碼相同'); show('⚠ 新密碼不可與目前密碼相同',false); return; }
+  if(newPw.length < 6){ alert('⚠ 新密碼至少需要 6 個字元'); show('⚠ 新密碼至少6碼',false); return; }
+  if(newPw !== confirm2){ alert('❌ 兩次輸入的新密碼不一致，請再確認'); show('⚠ 兩次新密碼不一致',false); return; }
+  db.ref('tracker/admin_config/password').set(newPw).then(()=>{
+    ADMIN_PASSWORD_CURRENT = newPw;
+    show('✓ 密碼已成功更新',true);
+    ['pw-old','pw-new','pw-confirm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    setTimeout(()=>{ if(msgEl) msgEl.textContent=''; },4000);
+    alert('✅ 管理者密碼已成功更新！下次登入請使用新密碼。');
+  }).catch(e=>{ show('⚠ '+e.message,false); alert('⚠ 更新失敗：'+e.message); });
+}
 function togglePerfDes(ri){
   const detail = document.getElementById('perf-detail-'+ri);
   const icon   = document.getElementById('perf-expand-'+ri);
@@ -3326,8 +3384,12 @@ function exportMonthSumExcel(){
 }
 
 // ══ INIT ══════════════════════════════════════════════
+// 載入管理者密碼（Firebase 初始化後才能呼叫）
+db.ref('tracker/admin_config/password').once('value').then(snap=>{
+  if(snap.val()) ADMIN_PASSWORD_CURRENT = snap.val();
+});
+
 document.getElementById('f-due').valueAsDate = new Date(Date.now()+86400000);
-// Populate level/category selects (will be updated when Firebase data loads)
 mailLevels = [...DEFAULT_LEVELS];
 mailCategories = [...DEFAULT_CATEGORIES];
 populateLevelCategorySelects();
@@ -3342,7 +3404,11 @@ setTimeout(()=>{
 
 if(curLeader){
   document.getElementById('ls').classList.add('hidden');
-  applyChip();showAdminNav();pendLeader=curLeader;
+  applyChip(); showAdminNav(); pendLeader=curLeader;
+  // 重整後恢復上次所在頁面
+  const lastPage = localStorage.getItem('lastPage') || 'dispatch';
+  const targetBtn = [...document.querySelectorAll('.nav-btn')].find(b=>b.getAttribute('onclick')?.includes("'"+lastPage+"'"));
+  goPage(lastPage, targetBtn || document.querySelector('.nav-btn'));
 }
 </script>
 </body>
