@@ -1309,20 +1309,47 @@ function saveCategories(){ fbWrite('mail_categories', mailCategories); }
 
 // ══ FIREBASE 即時監聽 ══════════════════════════════════
 // 監聽 mails
-db.ref('tracker/mails').on('value', snap => {
-  if (_writing.mails) return;
-  const val = snap.val();
-  if(!val){ mails=[]; onMailsUpdated(); return; }
-  // 支援兩種格式：
-  // 新格式：{ mailId: {...}, mailId2: {...} }（用 mail.id 當 key）
-  // 舊格式：[{...}, {...}]（舊版 array）
-  if(Array.isArray(val)){
-    mails = val.filter(Boolean);
+// ── mails 監聽：改用 child event，只更新有變動的那筆，不整包覆蓋 ──
+let _mailsInitDone = false;
+let _mailsInitTimer = null;
+
+// child_added：初始載入（批次）+ 新增
+db.ref('tracker/mails').on('child_added', snap => {
+  if(_writing.mails) return;
+  const v = snap.val();
+  if(!v || typeof v !== 'object') return;
+  const mail = { ...v, id: v.id || snap.key };
+  const idx = mails.findIndex(m => m.id === mail.id);
+  if(idx >= 0) mails[idx] = mail; else mails.push(mail);
+
+  if(!_mailsInitDone){
+    // 初始載入期間：防抖，最後一筆到後再統一 render
+    clearTimeout(_mailsInitTimer);
+    _mailsInitTimer = setTimeout(()=>{
+      _mailsInitDone = true;
+      onMailsUpdated();
+    }, 300);
   } else {
-    mails = Object.values(val).filter(Boolean);
+    // 初始化後的新增：即時 render
+    onMailsUpdated();
   }
-  // 確保每筆都有 id
-  mails.forEach(m => { if(!m.id) m.id = Object.keys(val).find(k=>val[k]===m)||''; });
+});
+
+// child_changed：任何欄位（包含 status）被更新
+db.ref('tracker/mails').on('child_changed', snap => {
+  if(_writing.mails) return;
+  const v = snap.val();
+  if(!v || typeof v !== 'object') return;
+  const mail = { ...v, id: v.id || snap.key };
+  const idx = mails.findIndex(m => m.id === mail.id);
+  if(idx >= 0) mails[idx] = mail; else mails.push(mail);
+  onMailsUpdated();
+});
+
+// child_removed：刪除
+db.ref('tracker/mails').on('child_removed', snap => {
+  if(_writing.mails) return;
+  mails = mails.filter(m => m.id !== snap.key);
   onMailsUpdated();
 });
 
@@ -1434,6 +1461,7 @@ function onLeadersUpdated() {
   applyChip();
   const ap = document.querySelector('.page.active')?.id?.replace('page-','');
   if (ap === 'settings') renderSettings();
+  if (ap === 'board')    renderKanban(); // 組長資料更新後重渲看板
 }
 
 function onDesignersUpdated() {
@@ -1685,7 +1713,15 @@ function renderToday(){
 
 // ══ KANBAN ════════════════════════════════════════════
 function renderKanban(){
-  const f = document.getElementById('kanban-filter').value;
+  // 確保設計師篩選選單是最新的
+  const kf = document.getElementById('kanban-filter');
+  if(kf){
+    const prev = kf.value;
+    const dOpts = designers.map(d=>`<option>${d}</option>`).join('');
+    kf.innerHTML = '<option value="">全部設計師</option>' + dOpts;
+    kf.value = prev; // 保留之前的選擇
+  }
+  const f = kf?.value || '';
   const data = f ? mails.filter(m=>m.designer===f) : mails;
   ['pending','wip','done','revision','closed'].forEach(col=>{
     const items = data.filter(m=>m.status===col);
@@ -1694,6 +1730,7 @@ function renderKanban(){
       const mine = isMyDes(m.designer);
       return `<div class="kcard${mine?' my-team':''}" draggable="true"
         ondragstart="kanbanDragStart(event,'${m.id}')"
+        ondragend="this.style.opacity='1'"
         onclick="openEdit('${m.id}')">
         <div class="kid">${m.id}</div>
         <div class="ksub">${m.subject}</div>
@@ -1714,21 +1751,27 @@ let _dragMailId = null;
 function kanbanDragStart(e, mailId){
   _dragMailId = mailId;
   e.dataTransfer.effectAllowed = 'move';
+  // 視覺提示：拖曳中的卡片半透明
+  setTimeout(()=>{ e.target.style.opacity='0.4'; },0);
 }
 function kanbanDrop(e, newStatus){
   e.preventDefault();
+  // 還原所有卡片透明度
+  document.querySelectorAll('.kcard').forEach(el=>el.style.opacity='1');
   if(!_dragMailId) return;
   const m = mails.find(x=>x.id===_dragMailId);
   if(!m || m.status===newStatus){ _dragMailId=null; return; }
+
+  // 直接修改本地狀態，立即重渲 UI
   m.status = newStatus;
-  // 直接更新單筆到 Firebase
-  _writing.mails = true;
-  db.ref('tracker/mails/'+m.id).update({status: newStatus}).then(()=>{
-    setTimeout(()=>{ _writing.mails=false; },500);
-  }).catch(err=>{ _writing.mails=false; toast('⚠ 更新失敗：'+err.message); });
-  renderKanban(); // 立即更新 UI，不等 Firebase
-  _dragMailId = null;
+  renderKanban();
   toast('✓ 已移至：'+SL[newStatus]);
+
+  // 背景同步到 Firebase（不設 _writing flag，讓 listener 正常運作）
+  db.ref('tracker/mails/'+m.id+'/status').set(newStatus)
+    .catch(err=>{ toast('⚠ 同步失敗：'+err.message); m.status=newStatus; });
+
+  _dragMailId = null;
 }
 
 // ══ LIST ══════════════════════════════════════════════
@@ -2337,10 +2380,18 @@ function saveEdit(){
 function deleteMailFromEdit(){
   const m = mails.find(x=>x.id===editMailId); if(!m) return;
   if(!confirm(`確定刪除「${m.subject}」？此操作無法復原`)) return;
-  mails = mails.filter(x=>x.id!==editMailId);
-  saveMails();
-  closeEdit();
-  toast('✓ 已刪除');
+  const idToDelete = editMailId;
+  _writing.mails = true;
+  db.ref('tracker/mails/'+idToDelete).remove().then(()=>{
+    mails = mails.filter(x=>x.id!==idToDelete);
+    setTimeout(()=>{ _writing.mails=false; },500);
+    closeEdit();
+    renderList(); renderKanban(); renderToday();
+    toast('✓ 已刪除');
+  }).catch(err=>{
+    _writing.mails = false;
+    toast('⚠ 刪除失敗：'+err.message);
+  });
 }
 
 
@@ -3405,10 +3456,18 @@ setTimeout(()=>{
 if(curLeader){
   document.getElementById('ls').classList.add('hidden');
   applyChip(); showAdminNav(); pendLeader=curLeader;
-  // 重整後恢復上次所在頁面
+  // 重整後恢復上次所在分頁
   const lastPage = localStorage.getItem('lastPage') || 'dispatch';
-  const targetBtn = [...document.querySelectorAll('.nav-btn')].find(b=>b.getAttribute('onclick')?.includes("'"+lastPage+"'"));
-  goPage(lastPage, targetBtn || document.querySelector('.nav-btn'));
+  const validPages = ['dispatch','board','list','bundle','weekly','perf','monthsum','leave','settings'];
+  const page = validPages.includes(lastPage) ? lastPage : 'dispatch';
+  // 等 DOM 穩定後再切頁（避免 Firebase 資料還沒到就 render）
+  setTimeout(()=>{
+    const targetBtn = [...document.querySelectorAll('.nav-btn')].find(b=>{
+      const oc = b.getAttribute('onclick')||'';
+      return oc.includes("'"+page+"'");
+    });
+    goPage(page, targetBtn);
+  }, 100);
 }
 </script>
 </body>
