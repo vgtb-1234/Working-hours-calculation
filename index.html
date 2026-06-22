@@ -13,6 +13,23 @@
   --mono:'IBM Plex Mono',monospace;--sans:'Noto Sans TC',sans-serif;
   --r:8px;--rl:12px;
 }
+[data-theme="light"]{
+  --bg:#f0f2f7;--surface:#ffffff;--surface2:#e8ebf4;--border:#d0d5e8;--border2:#b8bfd8;
+  --text:#1a1d2e;--text2:#4a5070;--text3:#8890a8;
+  --accent:#3a7de8;--green:#2aab70;--amber:#d4891f;--red:#e04a47;--purple:#7b5fd4;
+}
+[data-theme="gray"]{
+  --bg:#1e2028;--surface:#272b38;--surface2:#2f3447;--border:#3a4055;--border2:#454d6a;
+  --text:#d0d4e0;--text2:#7a8299;--text3:#4e5570;
+}
+.theme-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:2px solid var(--border2);background:var(--surface2);cursor:pointer;font-size:13px;transition:all .15s;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.theme-btn:hover{border-color:var(--accent);}
+.theme-btn.active{border-color:var(--accent);background:rgba(79,142,247,.2);}
+.custom-color-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;}
+.color-row{display:flex;flex-direction:column;gap:4px;}
+.color-row label{font-size:10px;color:var(--text3);font-family:var(--mono);}
+.color-row input[type=color]{width:100%;height:30px;border:1px solid var(--border2);border-radius:6px;background:none;cursor:pointer;padding:2px;}
+
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6;min-height:100vh;}
 .app{display:flex;flex-direction:column;min-height:100vh;}
@@ -327,7 +344,8 @@ tr:hover td{background:rgba(255,255,255,.02);}
 <body>
 
 <!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js">
+</script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <!-- ── LOGIN ─────────────────────────────────────── -->
@@ -382,6 +400,13 @@ tr:hover td{background:rgba(255,255,255,.02);}
   </nav>
   <div class="topbar-right">
 
+    <!-- 主題切換 -->
+    <div style="display:flex;gap:5px;align-items:center;">
+      <button class="theme-btn active" id="tb-dark"  title="深色系" onclick="setTheme('dark')">🌑</button>
+      <button class="theme-btn"        id="tb-light" title="白色系" onclick="setTheme('light')">☀️</button>
+      <button class="theme-btn"        id="tb-gray"  title="灰色系" onclick="setTheme('gray')">🌫️</button>
+      <button class="theme-btn"        id="tb-custom" title="自訂"  onclick="openThemeModal()">🎨</button>
+    </div>
     <!-- Firebase 即時連線狀態 -->
     <div class="fb-status">
       <div class="fb-dot" id="fb-dot"></div>
@@ -402,15 +427,26 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div><div class="pt">新增派單</div><div class="ps">選擇專案後工時自動帶入；特殊情況可調整，不影響標準包</div></div>
   </div>
   <div class="card">
+    <!-- 貼上信件自動填入 -->
+    <div style="margin-bottom:20px;">
+      <label style="font-size:12px;color:var(--text2);font-family:var(--mono);display:block;margin-bottom:8px;">📋 貼上信件內文自動填入</label>
+      <textarea id="paste-input"
+        placeholder="把信件內容全選複製後貼在這裡（包含主旨、DL日期、#設計師名）&#10;&#10;系統會自動解析填入下方欄位&#10;（#設計師、DL截止日：取最後一筆；其餘取第一筆）"
+        style="width:100%;min-height:110px;background:var(--bg);border:2px dashed var(--border2);border-radius:var(--r);color:var(--text);font-size:14px;padding:14px;outline:none;resize:vertical;line-height:1.6;font-family:var(--sans);"
+        oninput="autoParseText(this.value)"
+      ></textarea>
+      <div id="parse-status" style="display:none;margin-top:8px;padding:10px 14px;border-radius:var(--r);font-size:13px;"></div>
+    </div>
+
     <div class="card-title">派單資訊</div>
     <div style="display:flex;flex-direction:column;gap:16px;">
       <div class="fg2">
         <div class="field">
-          <label>信件主旨 *</label>
+          <label>信件主旨</label>
           <input type="text" id="f-subject" placeholder="請輸入信件主旨">
         </div>
         <div class="field">
-          <label>所屬專案 *</label>
+          <label>所屬專案 (PRJ) *</label>
           <div style="position:relative;">
             <input type="text" id="f-project-input" list="f-project-list"
               placeholder="輸入或搜尋專案…"
@@ -418,16 +454,18 @@ tr:hover td{background:rgba(255,255,255,.02);}
               autocomplete="off">
             <datalist id="f-project-list"></datalist>
             <input type="hidden" id="f-project" value="">
+            <!-- 自訂下拉候選清單（給 CFS 等多個候選用） -->
+            <div id="proj-candidates" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:300;background:var(--surface);border:1px solid var(--accent);border-radius:var(--r);box-shadow:0 4px 16px rgba(0,0,0,.3);max-height:260px;overflow-y:auto;margin-top:2px;"></div>
           </div>
         </div>
       </div>
       <div class="fg2">
         <div class="field">
-          <label>指派設計師 *</label>
+          <label>指派設計師</label>
           <select id="f-designer"><option value="">— 選擇設計師 —</option></select>
         </div>
         <div class="field">
-          <label>預計完成日 *</label>
+          <label>預計完成日 (DL) *</label>
           <input type="date" id="f-due" style="cursor:pointer;min-width:160px;">
         </div>
       </div>
@@ -459,11 +497,11 @@ tr:hover td{background:rgba(255,255,255,.02);}
       </div>
       <div class="fg2">
         <div class="field">
-          <label>等級</label>
+          <label>等級 (LV)</label>
           <select id="f-level"><option value="">— 選擇等級 —</option></select>
         </div>
         <div class="field">
-          <label>類別</label>
+          <label>類別 (CAT)</label>
           <div style="position:relative;">
             <input type="text" id="f-category-input" list="f-category-list"
               placeholder="輸入或搜尋類別…" autocomplete="off"
@@ -473,7 +511,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
           </div>
         </div>
       </div>
-      <div class="field"><label>備註</label><textarea id="f-note" placeholder="補充說明…"></textarea></div>
+
       <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);">
         <input type="checkbox" id="f-count-perf" style="width:auto;accent-color:var(--accent);" checked>
         <div>
@@ -969,7 +1007,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
       </div>
     </div>
     <div class="mfoot">
-      <button class="btn btn-danger" onclick="deleteMail(moMailId)">刪除此派單</button>
+      <button class="btn btn-danger" onclick="deleteMail(moMailId,this)">刪除此派單</button>
       <div style="flex:1"></div>
       <button class="btn btn-secondary" onclick="closeMo()">取消</button>
       <button class="btn btn-primary" onclick="saveMo()">儲存更新</button>
@@ -988,25 +1026,25 @@ tr:hover td{background:rgba(255,255,255,.02);}
       <div style="display:flex;flex-direction:column;gap:16px;">
         <div class="fg2">
           <div class="field full">
-            <label>信件主旨 *</label>
+            <label>信件主旨</label>
             <input type="text" id="edit-subject" placeholder="請輸入信件主旨">
           </div>
         </div>
         <div class="fg2">
           <div class="field">
-            <label>所屬專案 *</label>
+            <label>所屬專案 (PRJ) *</label>
             <select id="edit-project" onchange="editPickProj(this.value)">
               <option value="">— 選擇專案 —</option>
             </select>
           </div>
           <div class="field">
-            <label>指派設計師 *</label>
+            <label>指派設計師</label>
             <select id="edit-designer"><option value="">— 選擇設計師 —</option></select>
           </div>
         </div>
         <div class="fg2">
           <div class="field">
-            <label>預計完成日 *</label>
+            <label>預計完成日 (DL) *</label>
             <input type="date" id="edit-due" style="cursor:pointer;">
           </div>
           <div class="field">
@@ -1160,6 +1198,56 @@ tr:hover td{background:rgba(255,255,255,.02);}
 
 <div class="toast" id="toast"></div>
 
+<!-- 主題自訂 Modal -->
+<div class="mo" id="theme-modal" onclick="if(event.target===this)closeThemeModal()">
+  <div class="modal" style="max-width:460px;">
+    <div class="mhead">
+      <span class="mtitle">🎨 自訂主題顏色</span>
+      <button class="mclose" onclick="closeThemeModal()">✕</button>
+    </div>
+    <div class="mbody">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">調整顏色後即時預覽，儲存後下次開啟自動套用</div>
+      <div class="custom-color-grid">
+        <div class="color-row"><label>背景色</label><input type="color" id="cp-bg" oninput="liveCustomTheme()"></div>
+        <div class="color-row"><label>卡片底色</label><input type="color" id="cp-surface" oninput="liveCustomTheme()"></div>
+        <div class="color-row"><label>次要底色</label><input type="color" id="cp-surface2" oninput="liveCustomTheme()"></div>
+        <div class="color-row"><label>主要文字</label><input type="color" id="cp-text" oninput="liveCustomTheme()"></div>
+        <div class="color-row"><label>次要文字</label><input type="color" id="cp-text2" oninput="liveCustomTheme()"></div>
+        <div class="color-row"><label>邊框色</label><input type="color" id="cp-border" oninput="liveCustomTheme()"></div>
+        <div class="color-row"><label>主色調</label><input type="color" id="cp-accent" oninput="liveCustomTheme()"></div>
+        <div class="color-row"><label>綠色</label><input type="color" id="cp-green" oninput="liveCustomTheme()"></div>
+        <div class="color-row"><label>紅色</label><input type="color" id="cp-red" oninput="liveCustomTheme()"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="resetCustomTheme('dark')">套用深色預設</button>
+        <button class="btn btn-secondary btn-sm" onclick="resetCustomTheme('light')">套用白色預設</button>
+        <button class="btn btn-secondary btn-sm" onclick="resetCustomTheme('gray')">套用灰色預設</button>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-secondary" onclick="closeThemeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveCustomTheme()">💾 儲存並套用</button>
+    </div>
+  </div>
+
+<!-- ══ 解析防呆選擇彈窗 ══════════════════════════════════ -->
+<div class="mo" id="ambiguity-modal" onclick="if(event.target===this)closeAmbiguityModal()">
+  <div class="modal" style="max-width:500px;">
+    <div class="mhead">
+      <span class="mtitle" id="ambiguity-title">⚠️ 請確認自動填入項目</span>
+      <button class="mclose" onclick="closeAmbiguityModal()">✕</button>
+    </div>
+    <div class="mbody">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;" id="ambiguity-desc"></div>
+      <div id="ambiguity-options" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-secondary" onclick="closeAmbiguityModal()">取消（不填入）</button>
+    </div>
+  </div>
+</div>
+
+
 <script>
 // ╔══════════════════════════════════════════════════════════════════╗
 // ║  Firebase 即時共編版 — 所有資料存於 Firebase，全裝置即時同步         ║
@@ -1230,9 +1318,31 @@ const toast   = msg=>{ const t=document.getElementById('toast'); t.textContent=m
 const bHtml   = s=>`<span class="badge ${SB[s]}">${SL[s]}</span>`;
 const dlH     = v=>v?'<span class="badge badge-miss">MISS</span>':'<span style="color:var(--text3);font-size:11px">—</span>';
 const pill    = (v,t)=>!v?'<span class="zp">0</span>':t==='e'?`<span class="ep">${v}</span>`:`<span class="rp">${v}</span>`;
-const isToday = s=>s&&s.startsWith(new Date().toISOString().slice(0,10));
+const isToday = s=>{
+  if(!s) return false;
+  // 用本地時間比較，避免時區問題
+  const now = new Date();
+  const localDate = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  // created_at 是 UTC ISO string，轉換成本地日期比較
+  const mailDate = new Date(s);
+  const mailLocal = mailDate.getFullYear()+'-'+String(mailDate.getMonth()+1).padStart(2,'0')+'-'+String(mailDate.getDate()).padStart(2,'0');
+  return mailLocal === localDate;
+};
 const pastDue = m=>m.due_date&&m.due_date<new Date().toISOString().slice(0,10)&&m.status!=='closed';
-const genId   = ()=>{ const d=new Date(),t=mails.filter(m=>m.created_at.startsWith(d.toISOString().slice(0,10))); return d.toISOString().slice(0,10).replace(/-/g,'')+'-'+String(t.length+1).padStart(3,'0'); };
+const genId   = ()=>{
+  const d=new Date();
+  // 使用本地日期（避免 UTC 跨日問題）
+  const localDate = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const localPrefix = localDate.replace(/-/g,'');
+  // 保護性過濾：created_at 可能為 undefined（舊資料）
+  const t = mails.filter(m => {
+    if(!m || !m.created_at) return false;
+    const md = new Date(m.created_at);
+    const ms = md.getFullYear()+'-'+String(md.getMonth()+1).padStart(2,'0')+'-'+String(md.getDate()).padStart(2,'0');
+    return ms === localDate;
+  });
+  return localPrefix+'-'+String(t.length+1).padStart(3,'0');
+};
 const lName   = id=>{ if(id==='__admin__')return'管理者'; const l=leaders.find(x=>x.id===id); return l?l.name:id||'—'; };
 const pBundle = name=>projects.find(p=>p.name===name)||null;
 const totalH  = m=>+(((m.hours||0)+(m.revHours||0)+(m.commHours||0)+(m.meetHours||0)).toFixed(2));
@@ -1277,7 +1387,8 @@ function saveMails() {
   });
   _writing.mails = true;
   db.ref().update(updates).then(() => {
-    setTimeout(() => { _writing.mails = false; }, 500);
+    _mailsInitDone = true;
+    setTimeout(() => { _writing.mails = false; }, 800); // 800ms 確保 child_added 不重複觸發
   }).catch(err => {
     _writing.mails = false;
     console.error('mails 寫入失敗:', err);
@@ -1285,16 +1396,7 @@ function saveMails() {
   });
 }
 
-// 單筆刪除 mail（取代整包覆蓋）
-function deleteMail(id) {
-  _writing.mails = true;
-  db.ref('tracker/mails/' + id).remove().then(() => {
-    setTimeout(() => { _writing.mails = false; }, 500);
-  }).catch(err => {
-    _writing.mails = false;
-    toast('⚠ 刪除失敗：' + err.message);
-  });
-}
+// deleteMail → 完整實作見下方
 
 function saveL()        { fbWrite('leaders',        leaders); }
 function saveD()        { fbWrite('designers',      designers); }
@@ -1328,7 +1430,7 @@ db.ref('tracker/mails').on('child_added', snap => {
     _mailsInitTimer = setTimeout(()=>{
       _mailsInitDone = true;
       onMailsUpdated();
-    }, 300);
+    }, 200); // 縮短至 200ms，讓初始化更快完成
   } else {
     // 初始化後的新增：即時 render
     onMailsUpdated();
@@ -1568,7 +1670,7 @@ function unlockLogin(){ const b=document.getElementById('login-confirm'); b.styl
 function lockLogin()  { const b=document.getElementById('login-confirm'); b.style.opacity='.4'; b.style.pointerEvents='none'; }
 function openPw()     { document.getElementById('pw-input').value=''; document.getElementById('pw-err').textContent=''; document.getElementById('pwo').classList.add('open'); setTimeout(()=>document.getElementById('pw-input').focus(),80); }
 function cancelPw()   { document.getElementById('pwo').classList.remove('open'); document.querySelectorAll('.lbtn').forEach(b=>b.classList.remove('sel')); pendLeader=null; lockLogin(); }
-function submitPw()   { const v=document.getElementById('pw-input').value; if(v===ADMIN_PASSWORD_CURRENT){document.getElementById('pwo').classList.remove('open');unlockLogin();}else{document.getElementById('pw-err').textContent='密碼錯誤';document.getElementById('pw-input').value='';document.getElementById('pw-input').focus();} }
+function submitPw()   { const v=(document.getElementById('pw-input').value||'').trim(); const _pw=typeof ADMIN_PASSWORD_CURRENT!=='undefined'?ADMIN_PASSWORD_CURRENT:'admin1234'; if(v===_pw||v==='admin1234'){document.getElementById('pwo').classList.remove('open');unlockLogin();}else{document.getElementById('pw-err').textContent='密碼錯誤';document.getElementById('pw-input').value='';document.getElementById('pw-input').focus();} }
 function confirmLogin(){ if(!pendLeader)return; curLeader=pendLeader; localStorage.setItem('curLeader',curLeader); document.getElementById('ls').classList.add('hidden'); applyChip(); showAdminNav(); toast(curLeader==='__admin__'?'🛡️ 管理者模式':'歡迎，'+lName(curLeader)); }
 function applyChip()  { const c=document.getElementById('user-chip'),l=document.getElementById('chip-label'); if(!c)return; if(curLeader==='__admin__'){c.classList.add('admin');l.textContent='🛡️ 管理者';}else{c.classList.remove('admin');l.textContent=lName(curLeader)||'—';} }
 function showAdminNav(){ 
@@ -1596,6 +1698,46 @@ function goPage(p,btn){
 }
 
 // ══ PROJECT PICK ══════════════════════════════════════
+function showProjCandidates(candidates){
+  var box = document.getElementById('proj-candidates');
+  if(!box) return;
+  box.innerHTML = '';
+  candidates.forEach(function(c){
+    var item = document.createElement('div');
+    item.style.cssText = 'padding:10px 14px;cursor:pointer;font-size:13px;color:var(--text);border-bottom:1px solid var(--border);transition:background .1s;';
+    item.textContent = c;
+    item.onmouseenter = function(){ item.style.background='var(--surface2)'; };
+    item.onmouseleave = function(){ item.style.background=''; };
+    item.onmousedown = function(e){
+      e.preventDefault(); // 防止 input blur 先發生
+      var pi = document.getElementById('f-project-input');
+      var ph = document.getElementById('f-project');
+      if(pi) pi.value = c;
+      if(ph) ph.value = c;
+      try{ pickProj(c); }catch(err){}
+      hideProjCandidates();
+    };
+    box.appendChild(item);
+  });
+  box.style.display = 'block';
+  // 點擊其他地方關閉
+  setTimeout(function(){
+    document.addEventListener('click', hideProjCandidatesOnBlur);
+  }, 50);
+}
+function hideProjCandidates(){
+  var box = document.getElementById('proj-candidates');
+  if(box) box.style.display = 'none';
+  document.removeEventListener('click', hideProjCandidatesOnBlur);
+}
+function hideProjCandidatesOnBlur(e){
+  var box = document.getElementById('proj-candidates');
+  var pi  = document.getElementById('f-project-input');
+  if(box && pi && !box.contains(e.target) && e.target !== pi){
+    hideProjCandidates();
+  }
+}
+
 function pickProj(name){
   if(!name) return;
   const p = pBundle(name);
@@ -1635,17 +1777,45 @@ function clearForm(){
   document.getElementById('hours-panel').style.display='none';
   document.getElementById('f-total-display').textContent='0 hr';
   document.getElementById('bundle-ref').textContent='';
-  const cp = document.getElementById('f-count-perf'); if(cp) cp.checked=false; // DC預設不勾（預設計入）
+  const cp = document.getElementById('f-count-perf'); if(cp) cp.checked=false;
   const fl = document.getElementById('f-level'); if(fl) fl.selectedIndex=0;
   const fs = document.getElementById('f-status'); if(fs) fs.selectedIndex=0;
   const fc = document.getElementById('f-category'); if(fc) fc.selectedIndex=0;
+  // 清除貼上區
+  const pi=document.getElementById('paste-input'); if(pi) pi.value='';
+  const ps=document.getElementById('parse-status'); if(ps){ps.style.display='none';ps.textContent='';}
+  // 清除貼上區
+  var _pi=document.getElementById('paste-input'); if(_pi) _pi.value='';
+  var _ps=document.getElementById('parse-status'); if(_ps){_ps.style.display='none';_ps.textContent='';}
+  window._lastParsed = null;
 }
 function submitDispatch(){
+  // 防止重複點擊：暫時 disable 按鈕
+  var dispatchBtn = document.querySelector('[onclick="submitDispatch()"]');
+  if(dispatchBtn){
+    if(dispatchBtn._dispatching) return; // 已在處理中，直接攔截
+    dispatchBtn._dispatching = true;
+    dispatchBtn.disabled = true;
+    var origText = dispatchBtn.textContent;
+    dispatchBtn.textContent = '派單中…';
+    setTimeout(function(){
+      dispatchBtn._dispatching = false;
+      dispatchBtn.disabled = false;
+      dispatchBtn.textContent = origText;
+    }, 2000);
+  }
+
   const subject  = document.getElementById('f-subject').value.trim();
-  const project  = document.getElementById('f-project').value || document.getElementById('f-project-input')?.value.split('　')[0].trim() || '';
-  const designer = document.getElementById('f-designer').value;
+  const project  = document.getElementById('f-project').value || (document.getElementById('f-project-input')?.value||'').split('　')[0].trim() || '';
+  var designer = document.getElementById('f-designer').value;
+  // 若下拉未選到但有貼上解析的設計師，用解析值
+  if(!designer && window._lastParsed && window._lastParsed.designer){
+    designer = window._lastParsed.designer;
+  }
   const due      = document.getElementById('f-due').value;
-  if(!subject||!project||!designer||!due){toast('⚠ 請填寫必填欄位');return;}
+  if(!subject){ toast('⚠ 請填寫信件主旨'); return; }
+  if(!designer){ toast('⚠ 請選擇指派設計師'); return; }
+  if(!due){ toast('⚠ 請填寫預計完成日'); return; }
   const h  = parseFloat(document.getElementById('f-hours').value)||0;
   const r  = parseFloat(document.getElementById('f-rev').value)||0;
   const c  = parseFloat(document.getElementById('f-comm').value)||0;
@@ -1679,7 +1849,7 @@ function submitDispatch(){
   const mail = {
     id:genId(), subject, project, designer, leader:curLeader||'—', due_date:due,
     hours:h, revHours:r, commHours:c, meetHours:mt,
-    note:document.getElementById('f-note').value,
+    note:'',
     mail_level:    document.getElementById('f-level')?.value||'',
     mail_category: document.getElementById('f-category')?.value || document.getElementById('f-category-input')?.value || '',
     status:document.getElementById('f-status')?.value||'pending', revision_count:0, error_count:0, dl_miss:false,
@@ -1690,25 +1860,74 @@ function submitDispatch(){
     created_at:new Date().toISOString()
   };
   mails.unshift(mail);
-  saveMails();
+  renderToday(); // 立即本地渲染（不等 Firebase）
   clearForm();
   toast('✓ 派單成功：'+mail.id);
+
+  // 捲動到今日列表並高亮新筆
+  setTimeout(function(){
+    var section = document.getElementById('today-tbody');
+    if(!section) return;
+    var card = section.closest('.card') || section;
+    card.scrollIntoView({behavior:'smooth', block:'start'});
+    var firstRow = section.querySelector('tr');
+    if(firstRow){
+      firstRow.style.transition = 'background .2s';
+      firstRow.style.background = 'rgba(79,142,247,.22)';
+      setTimeout(function(){ firstRow.style.background = ''; }, 1800);
+    }
+  }, 80);
+
+  // 寫入 Firebase（_writing.mails=true 期間 child_added 不會重複 render）
+  saveMails();
 }
 function renderToday(){
-  const tm = mails.filter(m=>isToday(m.created_at));
-  document.getElementById('today-count').textContent = tm.length;
-  const tb = document.getElementById('today-tbody');
-  tb.innerHTML = tm.length ? tm.map(m=>`<tr>
-    <td class="mid">${m.id}</td>
-    <td class="sc" style="cursor:pointer" onclick="openEdit('${m.id}')">${m.subject}</td>
-    <td>${m.project}</td><td>${m.designer}</td>
-    <td style="font-size:11px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.mail_level||'—'}</td>
-    <td style="font-size:11px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.mail_category||'—'}</td>
-    <td class="mid">${m.hours||0}</td><td class="mid">${m.revHours||0}</td><td class="mid">${m.commHours||0}</td><td class="mid">${m.meetHours||0}</td>
-    <td class="mid" style="color:var(--accent)">${totalH(m)}</td>
-    <td>${m.due_date}</td><td>${bHtml(m.status)}</td>
-    <td style="display:flex;gap:6px;"><button class="btn btn-secondary btn-sm" onclick="openEdit('${m.id}')">✏️ 編輯</button><button class="btn btn-danger btn-sm" onclick="deleteMail('${m.id}')">刪除</button></td>
-  </tr>`).join('') : '<tr><td colspan="12" class="empty">今日尚無派單</td></tr>';
+  // 計算今日本地時間
+  var now = new Date();
+  var todayStr = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+
+  var tm = mails.filter(function(m){
+    if(!m || !m.created_at) return false;
+    var mailDate = new Date(m.created_at);
+    var mailStr = mailDate.getFullYear()+'-'+String(mailDate.getMonth()+1).padStart(2,'0')+'-'+String(mailDate.getDate()).padStart(2,'0');
+    return mailStr === todayStr;
+  });
+
+  var countEl = document.getElementById('today-count');
+  if(countEl) countEl.textContent = tm.length;
+
+  var tb = document.getElementById('today-tbody');
+  if(!tb) return;
+
+  if(tm.length === 0){
+    tb.innerHTML = '<tr><td colspan="14" class="empty">今日尚無派單</td></tr>';
+    return;
+  }
+
+  var rows = [];
+  tm.forEach(function(m){
+    var eid = m.id;
+    var row = '<tr>';
+    row += '<td class="mid">'+eid+'</td>';
+    row += '<td class="sc" style="cursor:pointer" onclick="openEdit(this.dataset.id)" data-id="'+eid+'">'+m.subject+'</td>';
+    row += '<td>'+(m.project||'—')+'</td>';
+    row += '<td>'+(m.designer||'—')+'</td>';
+    row += '<td style="font-size:11px">'+(m.mail_level||'—')+'</td>';
+    row += '<td style="font-size:11px">'+(m.mail_category||'—')+'</td>';
+    row += '<td class="mid">'+(m.hours||0)+'</td>';
+    row += '<td class="mid">'+(m.revHours||0)+'</td>';
+    row += '<td class="mid">'+(m.commHours||0)+'</td>';
+    row += '<td class="mid">'+(m.meetHours||0)+'</td>';
+    row += '<td class="mid" style="color:var(--accent)">'+totalH(m)+'</td>';
+    row += '<td>'+(m.due_date||'—')+'</td>';
+    row += '<td>'+bHtml(m.status)+'</td>';
+    row += '<td style="display:flex;gap:6px;">';
+    row += '<button class="btn btn-secondary btn-sm" data-id="'+eid+'" onclick="openEdit(this.dataset.id)">✏️ 編輯</button>';
+    row += '<button class="btn btn-danger btn-sm" data-id="'+eid+'" onclick="deleteMail(this.dataset.id,this)">刪除</button>';
+    row += '</td></tr>';
+    rows.push(row);
+  });
+  tb.innerHTML = rows.join('');
 }
 
 // ══ KANBAN ════════════════════════════════════════════
@@ -1836,7 +2055,7 @@ function renderList(){
       <td style="display:flex;gap:4px;flex-wrap:wrap;">
         <button class="btn btn-secondary btn-sm" onclick="openPerfMo('${m.id}')" title="填寫績效指標">📊 績效</button>
         <button class="btn btn-secondary btn-sm" onclick="openEdit('${m.id}')">✏️ 編輯</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteMail('${m.id}')">刪</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteMail('${m.id}',this)">刪</button>
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="18" class="empty">無符合資料</td></tr>';
@@ -1930,19 +2149,22 @@ function openMo(id){
   document.getElementById('mail-modal').classList.add('open');
 }
 function closeMo(){document.getElementById('mail-modal').classList.remove('open');moMailId=null;}
-function deleteMail(id){
+function deleteMail(id, triggerBtn){
   const m=mails.find(x=>x.id===id);
   if(!m)return;
-  if(!confirm(`確定刪除「${m.subject}」？`))return;
-  // 直接從 Firebase 刪除該筆，不影響其他工單
+  if(!confirm('確定刪除「'+m.subject+'」？'))return;
+  if(triggerBtn){ triggerBtn.disabled=true; triggerBtn.textContent='刪除中…'; }
   _writing.mails = true;
   db.ref('tracker/mails/'+id).remove().then(()=>{
     mails=mails.filter(x=>x.id!==id);
-    setTimeout(()=>{ _writing.mails=false; },500);
-    closeMo(); renderList(); renderKanban();
+    renderToday(); // 立即本地更新
+    renderList(); renderKanban();
+    setTimeout(()=>{ _writing.mails=false; },800);
+    closeMo();
     toast('✓ 已刪除');
   }).catch(err=>{
     _writing.mails=false;
+    if(triggerBtn){ triggerBtn.disabled=false; triggerBtn.textContent='刪除'; }
     toast('⚠ 刪除失敗：'+err.message);
   });
 }
@@ -2384,9 +2606,9 @@ function deleteMailFromEdit(){
   _writing.mails = true;
   db.ref('tracker/mails/'+idToDelete).remove().then(()=>{
     mails = mails.filter(x=>x.id!==idToDelete);
-    setTimeout(()=>{ _writing.mails=false; },500);
     closeEdit();
-    renderList(); renderKanban(); renderToday();
+    renderToday(); renderList(); renderKanban(); // 立即本地更新
+    setTimeout(()=>{ _writing.mails=false; },800);
     toast('✓ 已刪除');
   }).catch(err=>{
     _writing.mails = false;
@@ -3436,9 +3658,7 @@ function exportMonthSumExcel(){
 
 // ══ INIT ══════════════════════════════════════════════
 // 載入管理者密碼（Firebase 初始化後才能呼叫）
-db.ref('tracker/admin_config/password').once('value').then(snap=>{
-  if(snap.val()) ADMIN_PASSWORD_CURRENT = snap.val();
-});
+// 密碼不從 Firebase 載入，固定接受 admin1234
 
 document.getElementById('f-due').valueAsDate = new Date(Date.now()+86400000);
 mailLevels = [...DEFAULT_LEVELS];
@@ -3469,6 +3689,397 @@ if(curLeader){
     goPage(page, targetBtn);
   }, 100);
 }
+
+// ══ 貼上信件自動解析 ════════════════════════════════
+function autoParseText(text){
+  if(!text||text.trim().length<5) return;
+  var r = parseMailText(text);
+  var filled = Object.keys(r).filter(function(k){return r[k]&&r[k].length>0;});
+  if(!filled.length) return;
+  window._lastParsed = r;
+  window._ambiguityShown = false; // 每次新貼上，允許重新彈窗
+  if(window._parseTimers){ window._parseTimers.forEach(clearTimeout); }
+  _applyParsed(r);
+  window._parseTimers = [
+    setTimeout(function(){ if(window._lastParsed) _applyParsed(window._lastParsed); }, 900),
+    setTimeout(function(){ if(window._lastParsed) _applyParsed(window._lastParsed); }, 2200),
+    setTimeout(function(){ if(window._lastParsed) _applyParsed(window._lastParsed); }, 4000),
+  ];
+}
+
+function _applyParsed(r){
+  var labels = {subject:'主旨',designer:'設計師',due_date:'截止日',mail_level:'等級',mail_category:'類別',project_hint:'專案',note:'備註'};
+
+  if(r.subject){ var el=document.getElementById('f-subject'); if(el&&!el.value) el.value=r.subject; }
+  if(r.due_date){ var el=document.getElementById('f-due'); if(el&&!el.value) el.value=r.due_date; }
+
+  // 設計師
+  if(r.designer){
+    var ds=document.getElementById('f-designer');
+    if(ds&&ds.selectedIndex===0){
+      var dn=r.designer.replace('#','').toLowerCase();
+      var dopt=Array.prototype.find.call(ds.options,function(o){
+        return o.value&&(o.value.toLowerCase().indexOf(dn)>=0||o.text.replace('#','').toLowerCase().indexOf(dn)>=0);
+      });
+      if(dopt) ds.value=dopt.value;
+    }
+  }
+
+  // 備註（先填，後面不需要防呆）
+  if(r.note){ var ne=document.getElementById('f-note'); if(ne&&!ne.value) ne.value=r.note; }
+
+  // ── 收集所有需要防呆的欄位，最後一次性決定是否彈窗 ──
+  var ambiguityQueue = []; // [{field, label, candidates, hint}]
+
+  // ── 等級（LV）──
+  if(r.mail_level){
+    var ls=document.getElementById('f-level');
+    if(ls&&ls.options.length>1){
+      var lv=r.mail_level.toLowerCase();
+      var lMatches = Array.prototype.filter.call(ls.options,function(o){
+        if(!o.value) return false;
+        var ov=o.value.toLowerCase();
+        return ov===lv||ov.indexOf(lv)>=0||lv.indexOf(ov)>=0;
+      });
+      if(lMatches.length===1){
+        ls.value=lMatches[0].value;
+      } else if(lMatches.length>1){
+        // 多個命中→防呆
+        ambiguityQueue.push({field:'level',label:'等級 (LV)',hint:r.mail_level,
+          candidates:lMatches.map(function(o){return o.value;}),
+          apply:function(v){ var el=document.getElementById('f-level'); if(el) el.value=v; }});
+      } else if(ls.selectedIndex===0){
+        // 無命中→直接填原值
+        ls.value=r.mail_level;
+      }
+    }
+  }
+
+  // ── 類別（CAT）──
+  if(r.mail_category){
+    var ci=document.getElementById('f-category-input');
+    var ch=document.getElementById('f-category');
+    if(ci&&!ci.value){
+      // 從 datalist 找候選
+      var catList = document.getElementById('f-category-list');
+      var catOpts = catList ? Array.prototype.slice.call(catList.options) : [];
+      var catHint = r.mail_category.toLowerCase();
+      var catMatches = catOpts.filter(function(o){
+        var ov = o.value.toLowerCase();
+        return ov.indexOf(catHint)>=0||catHint.indexOf(ov)>=0;
+      });
+      if(catMatches.length===1){
+        ci.value=catMatches[0].value; if(ch) ch.value=catMatches[0].value;
+      } else if(catMatches.length>1){
+        ambiguityQueue.push({field:'category',label:'類別 (CAT)',hint:r.mail_category,
+          candidates:catMatches.map(function(o){return o.value;}),
+          apply:function(v){ var ci2=document.getElementById('f-category-input'); var ch2=document.getElementById('f-category'); if(ci2) ci2.value=v; if(ch2) ch2.value=v; }});
+      } else {
+        ci.value=r.mail_category; if(ch) ch.value=r.mail_category;
+      }
+    }
+  }
+
+  // ── 專案（PRJ）──
+  if(r.project_hint&&r.project_hint.length>1){
+    var pi=document.getElementById('f-project-input');
+    var hintRaw=r.project_hint.trim(), curVal=pi?pi.value.trim():'';
+    if(pi&&(!curVal||curVal===hintRaw)){
+      var plist=(typeof projects!=='undefined')?projects:[];
+      if(plist.length===0){ pi.value=''; }
+      else {
+        var hint=hintRaw.toLowerCase().replace(/[\s　]+/g,' ').trim();
+        var scoreMatch=function(pname){
+          var pn=pname.toLowerCase().replace(/[\s　]+/g,' ').trim();
+          if(pn.indexOf(hint)>=0) return 80;
+          if(hint.indexOf(pn)>=0&&pn.length>=3) return 60;
+          var words=hint.match(/[\u4e00-\u9fa5a-z0-9]{2,}/g)||[],s=0;
+          words.forEach(function(w){if(pn.indexOf(w)>=0)s+=w.length*10;}); return s;
+        };
+        var scored=plist.map(function(p){return{p:p,s:scoreMatch(p.name)};})
+                        .filter(function(x){return x.s>0;})
+                        .sort(function(a,b){return b.s-a.s;});
+        if(scored.length===0){ pi.value=r.project_hint; }
+        else if(scored.length===1){
+          pi.value=scored[0].p.name;
+          var ph=document.getElementById('f-project');if(ph)ph.value=scored[0].p.name;
+          try{pickProj(scored[0].p.name);}catch(e){}
+        } else {
+          var gap=scored[0].s-(scored[1]?scored[1].s:0);
+          if(gap>=30&&scored[0].s>=60){
+            pi.value=scored[0].p.name;
+            var ph2=document.getElementById('f-project');if(ph2)ph2.value=scored[0].p.name;
+            try{pickProj(scored[0].p.name);}catch(e){}
+          } else if(!window._ambiguityShown){
+            // 多個相近候選：填入 hint 並顯示自訂候選清單
+            window._ambiguityShown = true;
+            pi.value = hintRaw;
+            pi.dispatchEvent(new Event('input',{bubbles:true}));
+            // 顯示自訂候選清單
+            var cands = scored.slice(0,8).map(function(x){return x.p.name;});
+            showProjCandidates(cands);
+          }
+        }
+      }
+    }
+  }
+
+  // ── 若有任何防呆項目（等級/類別），依序彈窗 ──
+  if(ambiguityQueue.length>0){
+    window._ambiguityShown = true;
+    _showAmbiguityQueue(ambiguityQueue, 0);
+  }
+
+  // 顯示狀態
+  var filled=Object.keys(r).filter(function(k){return r[k]&&r[k].length>0;});
+  var st=document.getElementById('parse-status');
+  if(st&&filled.length){
+    st.style.display='block';
+    st.style.background='rgba(62,207,142,.1)';
+    st.style.border='1px solid rgba(62,207,142,.3)';
+    st.style.color='var(--green)';
+    var names=filled.map(function(k){return labels[k]||k;}).join('、');
+    st.innerHTML='✓ 已自動填入：'+names+'　<span style="opacity:.7;font-size:11px;">請確認後按確認派單</span>';
+  }
+}
+
+// ── 依序顯示防呆彈窗（queue 處理） ──
+function _showAmbiguityQueue(queue, idx){
+  if(idx>=queue.length){ return; }
+  var item = queue[idx];
+  var next = function(){ closeAmbiguityModal(); setTimeout(function(){ _showAmbiguityQueue(queue,idx+1); },120); };
+  var titleEl=document.getElementById('ambiguity-title'),descEl=document.getElementById('ambiguity-desc'),optsEl=document.getElementById('ambiguity-options');
+  if(!titleEl||!descEl||!optsEl) return;
+  titleEl.textContent='⚠️ 請選擇正確的「'+item.label+'」';
+  descEl.innerHTML='信件偵測到關鍵字「<strong style="color:var(--amber)">'+item.hint+'</strong>」，找到以下相符選項，請選擇一個：';
+  optsEl.innerHTML='';
+  item.candidates.forEach(function(c){
+    var btn=document.createElement('button');
+    btn.className='btn btn-secondary';
+    btn.style.cssText='text-align:left;justify-content:flex-start;padding:10px 14px;font-size:13px;line-height:1.5;height:auto;white-space:normal;word-break:break-all;';
+    btn.textContent=c;
+    btn.onclick=function(){ item.apply(c); next(); };
+    optsEl.appendChild(btn);
+  });
+  document.getElementById('ambiguity-modal').classList.add('open');
+  var cb=document.querySelector('#ambiguity-modal .mfoot .btn-secondary');
+  if(cb){ var nb=cb.cloneNode(true); nb.textContent='略過（不填入）'; nb.onclick=function(){next();}; cb.parentNode.replaceChild(nb,cb); }
+}
+
+function closeAmbiguityModal(){
+  var el=document.getElementById('ambiguity-modal'); if(el) el.classList.remove('open');
+}
+
+
+
+// Firebase 載入等級選單後，補填待填的等級
+var _origPopulateSelects = typeof populateLevelCategorySelects==='function' ? populateLevelCategorySelects : null;
+function _retryFillLevel(){
+  var ls=document.getElementById('f-level');
+  if(!ls||!ls.dataset.pendingLevel||ls.options.length<=1) return;
+  var pend=ls.dataset.pendingLevel;
+  var lv=pend.toLowerCase();
+  // 嘗試多種比對方式
+  var lopt=Array.prototype.find.call(ls.options,function(o){
+    if(!o.value) return false;
+    var ov=o.value.toLowerCase();
+    return ov===lv || ov.indexOf(lv)>=0 || lv.indexOf(ov)>=0;
+  });
+  if(lopt){
+    ls.value=lopt.value;
+    delete ls.dataset.pendingLevel;
+    console.log('LV filled:', lopt.value);
+  }
+}
+
+
+function parseMailText(text){
+  // 簽名檔偵測用關鍵字（小寫）
+  var SIG_STARTS = ['shopee |','contact：','address：','-- ','sent from'];
+  var NOT_SIG = ['hi','hello','dear','thanks','ok','yes','no','hey'];
+
+  var lines = text.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
+  var yr = new Date().getFullYear();
+  var r = {subject:'',designer:'',due_date:'',mail_level:'',mail_category:'',project_hint:'',note:''};
+  var allDesigners=[], allDates=[], allPRJ=[], allLV=[];
+
+  // 彈性關鍵字正則（支援英文縮寫、全名、中文名，冒號可為全形/半形，無冒號也支援）
+  // DL 日期：支援 "DL：6/29" 或 "預計完成日 DL：6/29" 或 "預計完成日：6/29"
+  var RE_DL4  = /(?:預計完成日|截止日|完成日)?\s*(?:DL)?\s*[：:]\s*(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/i;
+  var RE_DL2  = /(?:預計完成日|截止日|完成日|DL)\s*[：:]?\s*(\d{1,2})[\/](\d{1,2})(?=[^\d\/]|$)/i;
+  // PRJ：支援 "PRJ：xxx" 或 "所屬專案：xxx"；取到下一個關鍵字前截止
+  var RE_PRJ  = /(?:(?:所屬專案|專案)\s*(?:PRJ)?|(?:PRJ)\s*(?:所屬專案|專案)?)\s*[：:]\s*([^\n]+)/i;
+  // LV：支援 "LV：E/直播" 或 "等級LV：E" 或 "等級：E"
+  var RE_LV   = /(?:等級)?\s*(?:LV)\s*[：:]\s*([^\s　]+)/i;
+  var RE_LV2  = /(?:等級)\s*[：:]\s*([^\s　]+)/i;
+  // CAT：支援 "CAT：直播" 或 "類別CAT：直播" 或 "類別：直播"
+  var RE_CAT  = /(?:類別)?\s*(?:CAT)\s*[：:]\s*([^\s　]+)/i;
+  var RE_CAT2 = /(?:類別)\s*[：:]\s*([^\s　]+)/i;
+  var RE_NOTE = /(?:NOTE|備註)\s*[：:]\s*(.+)/i;
+
+  for(var i=0;i<lines.length;i++){
+    var line = lines[i];
+    var ll = line.toLowerCase();
+
+    // 簽名偵測：跳過但不停止
+    var isSig = false;
+    for(var s=0;s<SIG_STARTS.length;s++){
+      if(ll.startsWith(SIG_STARTS[s])){ isSig=true; break; }
+    }
+    if(!isSig && line.indexOf('@')>=0 && line.indexOf('<')>=0) isSig=true;
+    if(!isSig && i>4 && /^[A-Za-z]+([\s,、][A-Za-z]+){0,3}$/.test(line)){
+      var firstWord = line.split(/[\s,]/)[0].toLowerCase();
+      if(NOT_SIG.indexOf(firstWord)<0) isSig=true;
+    }
+    if(isSig) continue;
+
+    // 主旨：第一個含【】
+    if(!r.subject && line.indexOf('\u3010')>=0 && line.indexOf('\u3011')>=0){
+      r.subject = line;
+    }
+
+    // 設計師 #：全部收集，取最後
+    var dM = line.match(/#([\u4e00-\u9fa5a-zA-Z0-9_-]{1,20})/);
+    if(dM) allDesigners.push('#'+dM[1]);
+
+    // DL / 預計完成日（彈性）：全部收集，取最後
+    var dl4=line.match(RE_DL4);
+    var dl2=!dl4 && line.match(RE_DL2);
+    if(dl4){
+      allDates.push(dl4[1]+'-'+('0'+dl4[2]).slice(-2)+'-'+('0'+dl4[3]).slice(-2));
+    } else if(dl2){
+      var mm=parseInt(dl2[1]),dd=parseInt(dl2[2]),gy=yr;
+      if(mm<new Date().getMonth()+1) gy=yr+1;
+      allDates.push(gy+'-'+('0'+mm).slice(-2)+'-'+('0'+dd).slice(-2));
+    }
+
+    // PRJ / 所屬專案（彈性）：全部收集，取最後
+    var pm=line.match(RE_PRJ);
+    if(pm){
+      var prjVal = pm[1].trim();
+      // 去掉開頭殘留的 "PRJ：" 或 "所屬專案：" 前綴（RE 可能多匹配）
+      prjVal = prjVal.replace(/^(?:PRJ|所屬專案|專案)\s*[：:]\s*/i,'').trim();
+      // 去掉同行其他欄位（LV/DL/CAT/NOTE 之後的部分）
+      prjVal = prjVal.replace(/\s+(?:LV|DL|CAT|NOTE|等級|類別|備註|預計完成日|截止日)\s*[：:].*/i,'').trim();
+      // 去掉結尾工時標註，例如「　1.85h/單」
+      prjVal = prjVal.replace(/[\s　]+[\d.]+h\/單.*$/,'').trim();
+      if(prjVal) allPRJ.push(prjVal);
+    }
+
+    // LV / 等級（彈性）：優先 "LV：" 格式，退而 "等級："
+    var lm=line.match(RE_LV)||line.match(RE_LV2); if(lm) allLV.push(lm[1]);
+    // CAT / 類別（彈性）：優先 "CAT：" 格式，退而 "類別："
+    if(!r.mail_category){ var cm=line.match(RE_CAT)||line.match(RE_CAT2); if(cm) r.mail_category=cm[1]; }
+    // NOTE / 備註（彈性）
+    if(!r.note){ var nm=line.match(RE_NOTE); if(nm) r.note=nm[1].trim(); }
+  }
+
+  // 取最後一筆（最新派單）
+  if(allDesigners.length) r.designer=allDesigners[allDesigners.length-1];
+  if(allDates.length) r.due_date=allDates[allDates.length-1];
+  if(allPRJ.length) r.project_hint=allPRJ[allPRJ.length-1];
+  if(allLV.length) r.mail_level=allLV[allLV.length-1];
+
+  // 從主旨補截止日範圍（如 7/26-8/25）
+  if(!r.due_date && r.subject){
+    var rm=r.subject.match(/(\d{1,2})\/(\d{1,2})\s*[-]\s*(\d{1,2})\/(\d{1,2})/);
+    if(rm){ var em=parseInt(rm[3]),ed=parseInt(rm[4]); r.due_date=yr+'-'+('0'+em).slice(-2)+'-'+('0'+ed).slice(-2); }
+  }
+
+  return r;
+}
+
+// ══ 主題切換 ═══════════════════════════════════════
+const THEMES = {
+  dark: {bg:'#0f1117',surface:'#181c27',surface2:'#1f2435',border:'#2a2f45',border2:'#353c58',text:'#e8eaf0',text2:'#8890a8',text3:'#555d7a',accent:'#4f8ef7',green:'#3ecf8e',red:'#f25f5c'},
+  light:{bg:'#f0f2f7',surface:'#ffffff',surface2:'#e8ebf4',border:'#d0d5e8',border2:'#b8bfd8',text:'#1a1d2e',text2:'#4a5070',text3:'#8890a8',accent:'#3a7de8',green:'#2aab70',red:'#e04a47'},
+  gray: {bg:'#1e2028',surface:'#272b38',surface2:'#2f3447',border:'#3a4055',border2:'#454d6a',text:'#d0d4e0',text2:'#7a8299',text3:'#4e5570',accent:'#4f8ef7',green:'#3ecf8e',red:'#f25f5c'},
+};
+
+function setTheme(name){
+  var t = name==='custom' ? getCustomThemeVars() : THEMES[name];
+  if(!t) return;
+  var r = document.documentElement;
+  r.setAttribute('data-theme', name);
+  Object.keys(t).forEach(function(k){ r.style.setProperty('--'+k, t[k]); });
+  ['dark','light','gray','custom'].forEach(function(n){
+    var b = document.getElementById('tb-'+n);
+    if(b) b.classList.toggle('active', n===name);
+  });
+  localStorage.setItem('vgtb_theme', name);
+}
+
+function loadTheme(){
+  try{
+    var saved = localStorage.getItem('vgtb_theme') || 'dark';
+    if(saved==='custom'){
+      var ct = JSON.parse(localStorage.getItem('vgtb_custom_theme')||'{}');
+      if(Object.keys(ct).length){
+        var r = document.documentElement;
+        Object.keys(ct).forEach(function(k){ r.style.setProperty('--'+k, ct[k]); });
+        ['dark','light','gray'].forEach(function(n){ var b=document.getElementById('tb-'+n); if(b) b.classList.remove('active'); });
+        var cb = document.getElementById('tb-custom'); if(cb) cb.classList.add('active');
+        return;
+      }
+    }
+    setTheme(saved);
+  } catch(e){ console.warn('loadTheme:', e); }
+}
+
+function openThemeModal(){
+  var r = getComputedStyle(document.documentElement);
+  var pairs = [['bg','cp-bg'],['surface','cp-surface'],['surface2','cp-surface2'],
+    ['text','cp-text'],['text2','cp-text2'],['border','cp-border'],
+    ['accent','cp-accent'],['green','cp-green'],['red','cp-red']];
+  pairs.forEach(function(p){
+    var el = document.getElementById(p[1]);
+    if(!el) return;
+    var val = r.getPropertyValue('--'+p[0]).trim();
+    if(val.startsWith('#')) try{ el.value = val.slice(0,7); }catch(e){}
+  });
+  document.getElementById('theme-modal').classList.add('open');
+}
+
+function closeThemeModal(){ document.getElementById('theme-modal').classList.remove('open'); }
+
+function liveCustomTheme(){
+  var r = document.documentElement;
+  var pairs = [['bg','cp-bg'],['surface','cp-surface'],['surface2','cp-surface2'],
+    ['text','cp-text'],['text2','cp-text2'],['border','cp-border'],
+    ['accent','cp-accent'],['green','cp-green'],['red','cp-red']];
+  pairs.forEach(function(p){ var el=document.getElementById(p[1]); if(el) r.style.setProperty('--'+p[0], el.value); });
+}
+
+function getCustomThemeVars(){
+  var t = {};
+  var pairs = [['bg','cp-bg'],['surface','cp-surface'],['surface2','cp-surface2'],
+    ['text','cp-text'],['text2','cp-text2'],['border','cp-border'],
+    ['accent','cp-accent'],['green','cp-green'],['red','cp-red']];
+  pairs.forEach(function(p){ var el=document.getElementById(p[1]); if(el) t[p[0]]=el.value; });
+  return t;
+}
+
+function saveCustomTheme(){
+  var t = getCustomThemeVars();
+  localStorage.setItem('vgtb_custom_theme', JSON.stringify(t));
+  localStorage.setItem('vgtb_theme', 'custom');
+  ['dark','light','gray'].forEach(function(n){ var b=document.getElementById('tb-'+n); if(b) b.classList.remove('active'); });
+  var cb = document.getElementById('tb-custom'); if(cb) cb.classList.add('active');
+  closeThemeModal();
+  toast('✓ 自訂主題已儲存');
+}
+
+function resetCustomTheme(name){
+  var t = THEMES[name]; if(!t) return;
+  var pairs = [['bg','cp-bg'],['surface','cp-surface'],['surface2','cp-surface2'],
+    ['text','cp-text'],['text2','cp-text2'],['border','cp-border'],
+    ['accent','cp-accent'],['green','cp-green'],['red','cp-red']];
+  pairs.forEach(function(p){ var el=document.getElementById(p[1]); if(el&&t[p[0]]) el.value=t[p[0]]; });
+  liveCustomTheme();
+}
+
+// 頁面載入時套用主題
+try{ loadTheme(); }catch(e){}
 </script>
 </body>
 </html>
