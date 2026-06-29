@@ -5,7 +5,341 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>信件製作追蹤系統</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<style>
+:root{
+  --bg:#0f1117;--surface:#181c27;--surface2:#1f2435;--border:#2a2f45;--border2:#353c58;
+  --accent:#4f8ef7;--green:#3ecf8e;--amber:#f5a623;--red:#f25f5c;--purple:#9b7ff4;
+  --text:#e8eaf0;--text2:#8890a8;--text3:#555d7a;
+  --mono:'IBM Plex Mono',monospace;--sans:'Noto Sans TC',sans-serif;
+  --r:8px;--rl:12px;
+}
+[data-theme="light"]{
+  --bg:#f0f2f7;--surface:#ffffff;--surface2:#e8ebf4;--border:#d0d5e8;--border2:#b8bfd8;
+  --text:#1a1d2e;--text2:#4a5070;--text3:#8890a8;
+  --accent:#3a7de8;--green:#2aab70;--amber:#d4891f;--red:#e04a47;--purple:#7b5fd4;
+}
+[data-theme="gray"]{
+  --bg:#1e2028;--surface:#272b38;--surface2:#2f3447;--border:#3a4055;--border2:#454d6a;
+  --text:#d0d4e0;--text2:#7a8299;--text3:#4e5570;
+}
+.theme-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:2px solid var(--border2);background:var(--surface2);cursor:pointer;font-size:13px;transition:all .15s;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.theme-btn:hover{border-color:var(--accent);}
+.theme-btn.active{border-color:var(--accent);background:rgba(79,142,247,.2);}
+.custom-color-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;}
+.color-row{display:flex;flex-direction:column;gap:4px;}
+.color-row label{font-size:10px;color:var(--text3);font-family:var(--mono);}
+.color-row input[type=color]{width:100%;height:30px;border:1px solid var(--border2);border-radius:6px;background:none;cursor:pointer;padding:2px;}
+
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6;min-height:100vh;}
+.app{display:flex;flex-direction:column;min-height:100vh;}
+.topbar{display:flex;align-items:center;gap:16px;padding:0 24px;height:56px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.logo{font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:.05em;white-space:nowrap;}
+.logo span{color:var(--text2);}
+.nav{display:flex;gap:4px;margin-left:24px;}
+.nav-btn{background:none;border:none;color:var(--text2);font-family:var(--sans);font-size:13px;padding:6px 14px;border-radius:var(--r);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.nav-btn:hover{color:var(--text);background:var(--surface2);}
+.nav-btn.active{color:var(--accent);background:rgba(79,142,247,.12);}
+.nav-btn.admin-only{display:none;}.nav-btn.admin-only.visible{display:inline-flex;}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.badge-count{background:var(--accent);color:#fff;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:20px;}
+.main{flex:1;padding:24px;max-width:1440px;margin:0 auto;width:100%;}
+.page{display:none;}.page.active{display:block;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:20px;overflow:visible;}
+.card-title{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.fg4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.field{display:flex;flex-direction:column;gap:6px;}.field.full{grid-column:1/-1;}
+label{font-size:12px;color:var(--text2);font-family:var(--mono);}
+input,select,textarea{background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:14px;padding:9px 12px;outline:none;transition:border-color .15s;width:100%;}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+input[readonly]:not([type="date"]){color:var(--text2);cursor:not-allowed;background:var(--surface2);border-color:var(--border);}
+input[type="date"]{cursor:pointer;color-scheme:dark;}
+select option{background:var(--surface2);}
+textarea{resize:vertical;min-height:70px;}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:var(--r);border:none;font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;transition:all .15s;}
+.btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover{background:#3a7de8;}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2);}.btn-secondary:hover{background:var(--border);}
+.btn-danger{background:rgba(242,95,92,.15);color:var(--red);border:1px solid rgba(242,95,92,.3);}.btn-danger:hover{background:rgba(242,95,92,.25);}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-family:var(--mono);font-weight:500;white-space:nowrap;}
+.badge::before{content:'';width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.badge-pending{background:rgba(85,93,122,.3);color:var(--text2);}.badge-pending::before{background:var(--text3);}
+.badge-wip{background:rgba(79,142,247,.15);color:var(--accent);}.badge-wip::before{background:var(--accent);animation:pulse 1.5s infinite;}
+.badge-done{background:rgba(62,207,142,.12);color:var(--green);}.badge-done::before{background:var(--green);}
+.badge-revision{background:rgba(245,166,35,.15);color:var(--amber);}.badge-revision::before{background:var(--amber);}
+.badge-closed{background:rgba(85,93,122,.2);color:var(--text3);}.badge-closed::before{background:var(--text3);}
+.badge-miss{background:rgba(242,95,92,.15);color:var(--red);border:1px solid rgba(242,95,92,.2);}.badge-miss::before{background:var(--red);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.tw{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.08em;padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,.02);}
+.mid{font-family:var(--mono);font-size:12px;color:var(--text2);}
+.sc{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;align-items:start;}
+.kcol{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;}
+.khead{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.klabel{font-family:var(--mono);font-size:11px;letter-spacing:.06em;}
+.kcount{background:var(--surface2);color:var(--text2);font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:10px;}
+.kbody{padding:10px;display:flex;flex-direction:column;gap:8px;min-height:80px;}
+.kcard{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:11px 13px;cursor:pointer;transition:border-color .15s;}
+.kcard:hover{border-color:var(--border2);}
+.kid{font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:5px;}
+.ksub{font-size:12px;color:var(--text);line-height:1.4;margin-bottom:8px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.kmeta{display:flex;align-items:center;justify-content:space-between;}
+.dtag{font-size:11px;color:var(--text2);background:var(--border);padding:2px 7px;border-radius:4px;}
+.miss-dot{width:7px;height:7px;border-radius:50%;background:var(--red);flex-shrink:0;}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:18px 20px;}
+.stat-label{font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:8px;letter-spacing:.06em;}
+.stat-value{font-family:var(--mono);font-size:26px;font-weight:500;}
+.sv-blue{color:var(--accent);}.sv-green{color:var(--green);}.sv-amber{color:var(--amber);}.sv-red{color:var(--red);}.sv-purple{color:var(--purple);}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:4px;}
+.bar-chart{display:flex;flex-direction:column;gap:10px;}
+.bar-row{display:flex;align-items:center;gap:10px;}
+.bar-name{font-size:12px;color:var(--text2);width:82px;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bar-track{flex:1;height:22px;background:var(--surface2);border-radius:4px;overflow:hidden;position:relative;}
+.bar-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;transition:width .5s ease;}
+.bar-fill span{font-family:var(--mono);font-size:11px;color:#fff;}
+.ep{display:inline-block;background:rgba(242,95,92,.15);color:var(--red);font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:4px;}
+.rp{display:inline-block;background:rgba(245,166,35,.12);color:var(--amber);font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:4px;}
+.zp{display:inline-block;background:rgba(62,207,142,.1);color:var(--green);font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:4px;}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:200;display:none;align-items:center;justify-content:center;padding:20px;}
+.mo.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--rl);width:100%;max-width:580px;max-height:90vh;overflow-y:auto;}
+.mhead{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border);}
+.mtitle{font-family:var(--mono);font-size:13px;color:var(--text);}
+.mclose{background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;padding:4px;line-height:1;}.mclose:hover{color:var(--text);}
+.mbody{padding:22px;}.mfoot{display:flex;gap:10px;justify-content:flex-end;padding:16px 22px;border-top:1px solid var(--border);}
+.dg{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.df{display:flex;flex-direction:column;gap:4px;}.df.full{grid-column:1/-1;}
+.dl{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;}
+.dv{font-size:13px;color:var(--text);}
+.ctr-row{display:flex;align-items:center;gap:10px;}
+.ctr-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;}.ctr-btn:hover{background:var(--border);}
+.ctr-val{font-family:var(--mono);font-size:18px;min-width:28px;text-align:center;}
+.filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+.fsel{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);font-family:var(--sans);font-size:13px;padding:7px 12px;outline:none;cursor:pointer;}
+.sinput{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:13px;padding:7px 12px;outline:none;width:220px;}
+.sinput:focus{border-color:var(--accent);}.sinput::placeholder{color:var(--text3);}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--green);color:var(--green);font-family:var(--mono);font-size:12px;padding:10px 18px;border-radius:var(--r);z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;}
+.toast.show{transform:translateY(0);opacity:1;}
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.pt{font-family:var(--mono);font-size:16px;color:var(--text);}
+.ps{font-size:12px;color:var(--text3);margin-top:2px;}
+.empty{text-align:center;padding:40px 24px;color:var(--text3);font-size:13px;}
+.divider{margin:22px 0;border:none;border-top:1px solid var(--border);}
+.ls{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;align-items:center;justify-content:center;}
+.ls.hidden{display:none;}
+.lbox{background:var(--surface);border:1px solid var(--border2);border-radius:var(--rl);padding:40px 36px;width:100%;max-width:420px;}
+.llogo{font-family:var(--mono);font-size:18px;color:var(--accent);letter-spacing:.06em;margin-bottom:6px;}
+.llogo span{color:var(--text2);}
+.lsub{font-size:12px;color:var(--text3);margin-bottom:28px;}
+.llabel{font-family:var(--mono);font-size:11px;color:var(--text2);margin-bottom:10px;letter-spacing:.08em;}
+.lgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
+.lbtn{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 12px;cursor:pointer;text-align:center;transition:all .15s;color:var(--text2);font-family:var(--sans);font-size:14px;}
+.lbtn:hover{border-color:var(--border2);color:var(--text);}
+.lbtn.sel{border-color:var(--accent);background:rgba(79,142,247,.12);color:var(--accent);}
+.lbtn .li{font-size:20px;margin-bottom:5px;}
+.lbtn .ln{font-weight:500;font-size:14px;}
+.lbtn .lr{font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--mono);}
+.lbtn.sel .lr{color:rgba(79,142,247,.7);}
+.chip{display:flex;align-items:center;gap:6px;background:rgba(79,142,247,.1);border:1px solid rgba(79,142,247,.2);border-radius:20px;padding:4px 12px 4px 8px;cursor:pointer;transition:all .15s;}
+.chip:hover{background:rgba(79,142,247,.18);}
+.chip-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);}
+.chip-name{font-family:var(--mono);font-size:12px;color:var(--accent);}
+.chip.admin{background:rgba(245,166,35,.12);border-color:rgba(245,166,35,.3);}
+.chip.admin .chip-dot{background:var(--amber);}
+.chip.admin .chip-name{color:var(--amber);}
+.ab{display:inline-flex;align-items:center;gap:4px;background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.25);color:var(--amber);font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:20px;margin-left:8px;vertical-align:middle;}
+.pwo{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;display:none;align-items:center;justify-content:center;}
+.pwo.open{display:flex;}
+.pwbox{background:var(--surface);border:1px solid var(--border2);border-radius:var(--rl);padding:32px 28px;width:100%;max-width:340px;}
+.pwt{font-family:var(--mono);font-size:13px;color:var(--text);margin-bottom:6px;}
+.pws{font-size:12px;color:var(--text3);margin-bottom:20px;}
+.pwerr{font-size:12px;color:var(--red);font-family:var(--mono);margin-top:8px;min-height:18px;}
+.pwact{display:flex;gap:10px;margin-top:20px;}
+.lro{font-size:13px;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;cursor:not-allowed;display:flex;align-items:center;gap:6px;}
+.hpanel{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-top:4px;}
+.hpanel-title{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:10px;}
+.hrow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.hcell{display:flex;flex-direction:column;gap:4px;}
+.hcell label{font-size:10px;color:var(--text3);font-family:var(--mono);}
+.hcell input{font-size:13px;padding:7px 10px;}
+.htotal{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.htotal-label{font-size:11px;color:var(--text3);font-family:var(--mono);}
+.htotal-val{font-family:var(--mono);font-size:14px;color:var(--accent);font-weight:500;}
+.hlock-note{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:6px;}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.ss{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:20px;}
+.ss.full{grid-column:1/-1;}
+.sst{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;}
+.irow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.irow:last-child{border-bottom:none;}
+.ilabel{flex:1;font-size:13px;color:var(--text);}
+.inf{display:flex;gap:8px;margin-top:14px;padding-top:14px;border-top:1px dashed var(--border);flex-wrap:wrap;}
+.inf input{flex:1;min-width:80px;}
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
+.bundle-table th{background:var(--surface2);}
+.bundle-table td input{background:transparent;border:1px solid transparent;border-radius:4px;padding:5px 8px;font-size:12px;font-family:var(--mono);color:var(--text);width:100%;transition:border-color .15s;text-align:center;}
+.bundle-table td input:focus{border-color:var(--accent);background:var(--bg);}
+.bundle-table td input[readonly]{color:var(--text2);cursor:default;}
+.bundle-table td.calc{font-family:var(--mono);font-size:12px;color:var(--accent);text-align:center;white-space:nowrap;}
+.wh-table td{font-family:var(--mono);font-size:12px;}
+.wh-table td.num{text-align:right;color:var(--accent);}
+.wh-table td.std{text-align:right;color:var(--text2);}
+.th-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px;}
+.th-teams{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:start;}
+.th-team-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;}
+.th-team-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.th-team-name{font-family:var(--mono);font-size:12px;font-weight:500;}
+.th-team-total{font-family:var(--mono);font-size:13px;color:var(--accent);}
+.th-designer-row{border-bottom:1px solid var(--border);}
+.th-designer-row:last-child{border-bottom:none;}
+.th-designer-main{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;cursor:pointer;transition:background .12s;}
+.th-designer-main:hover{background:rgba(255,255,255,.03);}
+.th-designer-name{font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px;}
+.th-designer-hrs{font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:500;}
+.th-designer-hrs.zero{color:var(--text3);}
+.th-expand-icon{font-size:10px;color:var(--text3);transition:transform .15s;}
+.th-expand-icon.open{transform:rotate(180deg);}
+.th-detail{display:none;padding:10px 16px 12px;background:var(--bg);border-top:1px solid var(--border);}
+.th-detail.open{display:block;}
+.th-detail-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 16px;}
+.th-detail-item{display:flex;justify-content:space-between;font-size:11px;}
+.th-detail-label{color:var(--text3);font-family:var(--mono);}
+.th-detail-val{color:var(--text2);font-family:var(--mono);}
+.th-detail-mails{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.th-mail-chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--text2);margin:2px;}
+.th-empty{padding:20px 16px;font-size:12px;color:var(--text3);text-align:center;}
+.th-date-range{display:flex;gap:6px;align-items:center;}
+.th-date-range input{width:130px;font-size:12px;padding:6px 10px;}
+.th-date-range span{font-size:12px;color:var(--text3);}
+
+/* Firebase 狀態指示 */
+.fb-status{display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;}
+.fb-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0;transition:background .3s;}
+.fb-dot.connected{background:var(--green);animation:fbpulse 2s infinite;}
+.fb-dot.connecting{background:var(--amber);}
+.fb-dot.error{background:var(--red);}
+@keyframes fbpulse{0%,100%{opacity:1}50%{opacity:.5}}
+.fb-label{font-family:var(--mono);font-size:10px;color:var(--text3);}
+
+@media(max-width:900px){.kanban{grid-template-columns:1fr 1fr;}.stats-grid{grid-template-columns:1fr 1fr;}.cg{grid-template-columns:1fr;}.fg2,.fg4,.hrow{grid-template-columns:1fr 1fr;}.sg{grid-template-columns:1fr;}}
+@media(max-width:1100px){.th-teams{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:600px){.th-teams{grid-template-columns:1fr;}}
+
+/* ══ 績效看板 ══════════════════════════════════════════ */
+.perf-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.perf-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:16px 18px;}
+.perf-label{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:6px;}
+.perf-val{font-family:var(--mono);font-size:22px;font-weight:500;}
+.perf-sub{font-size:11px;color:var(--text3);margin-top:3px;}
+.perf-rate{font-family:var(--mono);font-size:12px;margin-top:4px;}
+.perf-rate.good{color:var(--green);}
+.perf-rate.bad{color:var(--red);}
+.perf-rate.neutral{color:var(--text2);}
+
+/* 設計師績效大表 */
+.perf-table th{background:var(--surface2);font-size:10px;padding:8px 10px;}
+.perf-table td{font-size:12px;padding:9px 10px;}
+.perf-table td.mono{font-family:var(--mono);}
+.perf-table tr.my-group td{background:rgba(79,142,247,.06);}
+.perf-table tr.my-group td:first-child::before{content:'★ ';color:var(--accent);}
+
+/* 看板 — 自己組員高亮 */
+.kcard.my-team{border-color:rgba(79,142,247,.4);background:rgba(79,142,247,.05);}
+.kcard.my-team .kid::after{content:' ★';color:var(--accent);font-size:9px;}
+
+/* 清單行 — 自己組員高亮 */
+.list-my-row td{background:rgba(79,142,247,.04) !important;}
+.list-my-row td:first-child{border-left:2px solid var(--accent);}
+
+/* 績效指標 badge */
+.ind-ok{display:inline-block;background:rgba(62,207,142,.12);color:var(--green);font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:4px;}
+.ind-bad{display:inline-block;background:rgba(242,95,92,.12);color:var(--red);font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:4px;}
+.ind-na{display:inline-block;color:var(--text3);font-family:var(--mono);font-size:11px;padding:1px 7px;}
+
+/* 工單 perf modal 區塊 */
+.pmo-section{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:12px;}
+.pmo-section-title{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:12px;text-transform:uppercase;}
+.pmo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.pmo-field{display:flex;flex-direction:column;gap:4px;}
+.pmo-field label{font-size:11px;color:var(--text3);font-family:var(--mono);}
+.pmo-field input[type="number"]{font-size:13px;padding:6px 10px;}
+.pmo-field select{font-size:13px;padding:6px 10px;}
+.pmo-field textarea{font-size:12px;min-height:50px;}
+
+/* 清單頁篩選加強 */
+.filter-tag{display:inline-flex;align-items:center;gap:4px;background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.25);color:var(--accent);font-family:var(--mono);font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer;}
+.filter-tag:hover{background:rgba(79,142,247,.2);}
+.filter-tag.active{background:rgba(79,142,247,.25);border-color:var(--accent);}
+
+/* 設計師歸屬設定 */
+.des-assign-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.des-assign-row:last-child{border-bottom:none;}
+.des-assign-name{flex:1;font-size:13px;color:var(--text);}
+.des-assign-sel{width:140px;font-size:12px;padding:5px 8px;}
+
+/* 組長管理 — 可無限新增 */
+.leader-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);}
+.leader-row:last-child{border-bottom:none;}
+
+/* 時間切換 tabs */
+.period-tabs{display:flex;gap:4px;background:var(--surface2);border-radius:var(--r);padding:3px;}
+.period-tab{background:none;border:none;color:var(--text2);font-family:var(--mono);font-size:11px;padding:5px 14px;border-radius:6px;cursor:pointer;transition:all .12s;}
+.period-tab.active{background:var(--accent);color:#fff;}
+
+/* 趨勢迷你圖 */
+.sparkline{display:flex;align-items:flex-end;gap:2px;height:28px;}
+.spark-bar{flex:1;background:var(--accent);border-radius:2px 2px 0 0;min-height:2px;transition:height .3s;}
+
+@media(max-width:900px){.perf-grid{grid-template-columns:1fr 1fr;}}
+
+/* ══ 週報樣式 ══════════════════════════════════════════ */
+.weekly-group-tab{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 18px;cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--text2);transition:all .15s;}
+.weekly-group-tab:hover{border-color:var(--border2);color:var(--text);}
+.weekly-group-tab.active{border-color:var(--accent);background:rgba(79,142,247,.12);color:var(--accent);}
+
+.weekly-table{width:100%;border-collapse:collapse;font-size:12px;}
+.weekly-table th{background:var(--surface2);font-family:var(--mono);font-size:10px;color:var(--text3);padding:8px 10px;border:1px solid var(--border);text-align:center;white-space:nowrap;}
+.weekly-table th.section-header{background:var(--border);color:var(--text2);font-size:11px;letter-spacing:.06em;}
+.weekly-table td{padding:9px 10px;border:1px solid var(--border);text-align:center;font-family:var(--mono);font-size:12px;}
+.weekly-table td.name-col{text-align:left;font-family:var(--sans);font-size:13px;font-weight:500;}
+.weekly-table td.total-col{background:rgba(79,142,247,.1);color:var(--accent);font-weight:500;}
+.weekly-table td.inner-col{background:rgba(245,166,35,.08);color:var(--amber);}
+.weekly-table td.rev-col{background:rgba(155,127,244,.08);color:var(--purple);}
+.weekly-table td.avg-row td{background:rgba(62,207,142,.06);color:var(--green);font-weight:500;}
+.weekly-table tr.avg-row td{background:rgba(62,207,142,.06)!important;color:var(--green);font-weight:500;border-top:2px solid var(--green);}
+.weekly-table tr:hover td{background:rgba(255,255,255,.025);}
+.weekly-table tr.avg-row:hover td{background:rgba(62,207,142,.1)!important;}
+.weekly-table td.on-leave{background:rgba(242,95,92,.08);color:var(--red);}
+.day-col-header{display:flex;flex-direction:column;align-items:center;gap:1px;}
+.day-col-header .day-num{font-size:12px;}
+.day-col-header .day-name{font-size:9px;color:var(--text3);}
+
+/* ══ 休假日曆 ══════════════════════════════════════════ */
+.cal-day{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px;min-height:80px;position:relative;}
+.cal-day.today{border-color:var(--accent);background:rgba(79,142,247,.05);}
+.cal-day.other-month{opacity:.4;}
+.cal-day.weekend{background:rgba(255,255,255,.01);}
+.cal-day-num{font-family:var(--mono);font-size:12px;color:var(--text2);margin-bottom:4px;}
+.cal-day.today .cal-day-num{color:var(--accent);font-weight:500;}
+.leave-chip{font-size:10px;border-radius:3px;padding:1px 6px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.leave-special{background:rgba(79,142,247,.25);color:#7fb3ff;}
+.leave-sick{background:rgba(242,95,92,.25);color:#f98e8c;}
+.leave-personal{background:rgba(245,166,35,.25);color:#f7c060;}
+.leave-holiday{background:rgba(62,207,142,.25);color:#6de8b2;}
+.leave-comp{background:rgba(155,127,244,.25);color:#b89cf7;}
+.cal-header-cell{font-family:var(--mono);font-size:11px;color:var(--text3);text-align:center;padding:6px 0;border-bottom:1px solid var(--border);}
+
+.upcoming-leave-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);}
+.upcoming-leave-item:last-child{border-bottom:none;}
+.leave-badge{font-size:11px;border-radius:4px;padding:2px 8px;font-family:var(--mono);white-space:nowrap;}
+</style>
 </head>
 <body>
 
@@ -20,7 +354,15 @@
     <div class="llogo">MAIL<span>/</span>TRACKER</div>
     <div class="lsub">請選擇身份以繼續</div>
     <div class="llabel">組長身份</div>
-    <div class="lgrid" id="leader-grid"></div>
+    <div class="lgrid" id="leader-grid">
+      <button class="lbtn" id="lbtn-A" onclick="selLeader('A',this)"><div class="li">👤</div><div class="ln">Gigi</div><div class="lr">LEADER-A</div></button>
+      <button class="lbtn" id="lbtn-B" onclick="selLeader('B',this)"><div class="li">👤</div><div class="ln">Linda</div><div class="lr">LEADER-B</div></button>
+      <button class="lbtn" id="lbtn-C" onclick="selLeader('C',this)"><div class="li">👤</div><div class="ln">Yoyo</div><div class="lr">LEADER-C</div></button>
+      <button class="lbtn" id="lbtn-D" onclick="selLeader('D',this)"><div class="li">👤</div><div class="ln">Vgtb</div><div class="lr">LEADER-D</div></button>
+      <button class="lbtn" id="lbtn-E" onclick="selLeader('E',this)"><div class="li">👤</div><div class="ln">傑瑞米</div><div class="lr">LEADER-E</div></button>
+      <button class="lbtn" id="lbtn-F" onclick="selLeader('F',this)"><div class="li">👤</div><div class="ln">Ellen</div><div class="lr">LEADER-F</div></button>
+      <button class="lbtn" id="lbtn-G" onclick="selLeader('G',this)"><div class="li">👤</div><div class="ln">Doris</div><div class="lr">LEADER-G</div></button>
+    </div>
     <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:16px;">
       <div class="llabel" style="margin-bottom:10px;">管理者身份</div>
       <button class="lbtn" onclick="selLeader('__admin__',this)" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;text-align:left;">
@@ -33,6 +375,7 @@
       </div>
     </div>
     <button class="btn btn-primary" id="login-confirm" style="width:100%;justify-content:center;opacity:.4;pointer-events:none" onclick="confirmLogin()">進入系統</button>
+
   </div>
 </div>
 
@@ -202,7 +545,17 @@
 <div class="page" id="page-board">
   <div class="ph">
     <div><div class="pt">任務看板</div></div>
-    <select class="fsel" id="kanban-filter" onchange="renderKanban()"><option value="">全部設計師</option></select>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select class="fsel" id="kanban-filter" onchange="renderKanban()"><option value="">全部設計師</option></select>
+      <button class="btn btn-secondary btn-sm admin-only" id="btn-select-mode" onclick="toggleKanbanSelectMode()" style="font-size:12px;">☑ 選取模式</button>
+      <button class="btn btn-danger btn-sm admin-only" id="btn-delete-selected" onclick="deleteSelectedMails()" style="display:none;font-size:12px;">🗑 刪除選取</button>
+    </div>
+  </div>
+  <div id="kanban-select-bar" style="display:none;padding:10px 0 6px;display:none;align-items:center;gap:10px;">
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" id="kanban-select-all" onchange="kanbanSelectAll(this.checked)" style="width:auto;"> 全選
+    </label>
+    <span id="kanban-select-count" style="font-size:12px;color:var(--text3);"></span>
   </div>
   <div class="kanban">
     <div class="kcol" ondragover="event.preventDefault()" ondrop="kanbanDrop(event,'pending')"><div class="khead"><span class="klabel">預先登記</span><span class="kcount" id="kc-pending">0</span></div><div class="kbody" id="k-pending"></div></div>
@@ -518,11 +871,11 @@
       <table class="bundle-table" id="bundle-tbl">
         <thead><tr>
           <th style="min-width:180px">專案</th>
-          <th style="text-align:right">工時(hr)</th>
-          <th style="text-align:right">內審反修(hr)</th>
-          <th style="text-align:right">溝通/檔(hr)</th>
-          <th style="text-align:right">外部反修(hr)</th>
-          <th style="text-align:right">單工單總工時</th>
+          <th style="text-align:center">工時 hr</th>
+          <th style="text-align:center">內審反修 hr</th>
+          <th style="text-align:center">溝通 hr</th>
+          <th style="text-align:center">外部反修 hr</th>
+          <th style="text-align:center">單檔總工時 hr</th>
           <th></th>
         </tr></thead>
         <tbody id="bundle-tbody"></tbody>
@@ -541,7 +894,7 @@
       <div id="import-preview" style="display:none;margin-top:14px;">
         <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:8px;">解析結果預覽</div>
         <div class="tw" style="max-height:260px;overflow-y:auto;">
-          <table><thead><tr><th>專案</th><th>工時h</th><th>內審反修h</th><th>溝通/檔h</th><th>外部反修h</th><th>總工時</th></tr></thead>
+          <table><thead><tr><th>專案</th><th>工時 hr</th><th>內審反修 hr</th><th>溝通 hr</th><th>外部反修 hr</th><th>單檔總工時 hr</th></tr></thead>
           <tbody id="import-preview-tbody"></tbody></table>
         </div>
         <div style="display:flex;gap:10px;margin-top:10px;align-items:center;">
@@ -557,10 +910,10 @@
       <div class="card-title">手動新增單筆專案</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
         <div class="field" style="flex:2;min-width:130px;"><label>專案 *</label><input type="text" id="bn-name" placeholder="輸入名稱"></div>
-        <div class="field" style="width:80px;"><label>工時h</label><input type="number" id="bn-h" min="0" step="0.5" placeholder="0"></div>
-        <div class="field" style="width:80px;"><label>內審反修h</label><input type="number" id="bn-r" min="0" step="0.5" placeholder="0"></div>
-        <div class="field" style="width:80px;"><label>溝通/檔h</label><input type="number" id="bn-c" min="0" step="0.5" placeholder="0"></div>
-        <div class="field" style="width:80px;"><label>外部反修h</label><input type="number" id="bn-ex" min="0" step="0.5" placeholder="0"></div>
+        <div class="field" style="width:80px;"><label>工時 hr</label><input type="number" id="bn-h" min="0" step="0.5" placeholder="0"></div>
+        <div class="field" style="width:80px;"><label>內審反修 hr</label><input type="number" id="bn-r" min="0" step="0.5" placeholder="0"></div>
+        <div class="field" style="width:80px;"><label>溝通 hr</label><input type="number" id="bn-c" min="0" step="0.5" placeholder="0"></div>
+        <div class="field" style="width:80px;"><label>外部反修 hr</label><input type="number" id="bn-ex" min="0" step="0.5" placeholder="0"></div>
         <button class="btn btn-primary" onclick="addBundleProj()" style="align-self:flex-end;">新增</button>
       </div>
     </div>
@@ -580,18 +933,17 @@
       </div>
       <div id="leaders-list"></div>
     </div>
-    <div class="ss">
-      <div class="sst"><span>設計師名單</span><span id="d-count" style="font-size:10px;color:var(--text3);font-family:var(--mono)"></span></div>
+    <div class="ss full">
+      <div class="sst">
+        <span>設計師名單</span>
+        <span id="d-count" style="font-size:10px;color:var(--text3);font-family:var(--mono)"></span>
+        <button class="btn btn-primary btn-sm" id="btn-save-des-meta" onclick="saveAllDesLeaders()" style="margin-left:auto;">💾 儲存歸屬設定</button>
+      </div>
       <div id="designers-list"></div>
       <div class="inf">
         <input type="text" id="new-d" placeholder="新增設計師姓名…" onkeydown="if(event.key==='Enter')addDesigner()">
         <button class="btn btn-primary btn-sm" onclick="addDesigner()">新增</button>
       </div>
-    </div>
-    <!-- 設計師歸屬設定 -->
-    <div class="ss full">
-      <div class="sst"><span>設計師隸屬組長</span></div>
-      <div id="des-assign-list"></div>
     </div>
     <!-- 等級管理 -->
     <div class="ss">
@@ -914,10 +1266,345 @@
 </div>
 
 
-<script src="js/firebase.js"></script>
-
 <script>
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  Firebase 即時共編版 — 所有資料存於 Firebase，全裝置即時同步         ║
+// ╚══════════════════════════════════════════════════════════════════╝
 
+let ADMIN_PASSWORD_CURRENT = 'admin1234'; // updated from Firebase on load after init
+
+// ── Firebase 設定 ──────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyDsmqGFLsTYPkvpN6-P8duHWibHujiQ3U0",
+  authDomain: "mail-test-7c8fa.firebaseapp.com",
+  databaseURL: "https://mail-test-7c8fa-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "mail-test-7c8fa",
+  storageBucket: "mail-test-7c8fa.firebasestorage.app",
+  messagingSenderId: "586861783031",
+  appId: "1:586861783031:web:2a9d36d10d712bd98db0f2"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ── 預設資料（Firebase 首次讀不到資料時套用）──────────
+const DEFAULT_LEADERS = [
+  { id:'A', name:'Gigi' },
+  { id:'B', name:'Linda' },
+  { id:'C', name:'Yoyo' },
+  { id:'D', name:'Vgtb' },
+  { id:'E', name:'傑瑞米' },
+  { id:'F', name:'Ellen' },
+  { id:'G', name:'Doris' },
+];
+const DEFAULT_DESIGNERS = [];
+const DEFAULT_PROJECTS  = [];
+
+// ── 本機狀態（從 Firebase 監聽更新）─────────────────
+let mails          = [];
+let leaders        = [...DEFAULT_LEADERS]; // 展開確保獨立副本
+let designers      = DEFAULT_DESIGNERS;
+let projects       = DEFAULT_PROJECTS;
+// designers_meta: { "設計師名": { leaderId: "A" } }
+let designers_meta = {};
+// 等級 & 類別清單（管理員可編輯）
+const DEFAULT_LEVELS = ['A+/全站', 'A+/SCS', 'B+/SCS', 'A+/SPX賣版', 'A/全站', 'C/直播', 'C/SPX', 'E/SPX', 'E/MKT', 'E/社群', 'E/CSR', 'E/HR', 'E/IP', 'E/蝦大', 'E/好惠買', 'E/SCS', 'F/', '其他/game', '其他/Circle'];
+const DEFAULT_CATEGORIES = ['MKT', 'SPX', 'CSR', 'IP', 'HR', 'OM', '蝦小編的店', 'Sea', 'SCS/蝦皮直營', '蝦大/線上', '蝦大/線下', '好惠買/線上', '好惠買/線下', 'JIT', 'ALL FMCG', 'HEALTH', 'HE', 'TKB', 'BEAUTY', 'HL', 'FB', 'PETS', 'ALL FS', 'WA', 'WACC', 'shoes', 'WB', 'MA', 'MBA', 'ALL EL', 'MG', '3C', 'NB', 'GAME', 'ALL LS', 'MO', 'LE', 'BOOKS', 'SO', 'TS', 'EE', 'CB', 'Cricle-FMCG-BEAUTY Shopee Premium', 'Cricle-FMCG-蝦皮超市', 'Cricle-FMCG-FB Coupang', 'Cricle-FMCG-TKB Coupang', 'Cricle-FMCG-TKB 蝦皮媽咪會員', 'Cricle-FMCG-HEALTH美妝保健館', 'Cricle-FMCG-HL 蝦皮家居L1 ', 'Cricle-FMCG-HL 寢具香氛館L2 ', 'Cricle-FMCG-HL 餐廚杯瓶館L2 ', 'Cricle-ALL LS-LE 文創+娛樂', 'Cricle-ALL LS-BOOKS 蝦皮書城', 'Cricle-ALL LS-T&S電子票券品牌館', 'Cricle-ALL LS-SO 戶外車用', 'Cricle-ALL LS-Shopee vita', 'Cricle-ALL EL-EL 3C家電館', 'Cricle-ALL EL-CB 海外購物節', 'Cricle-ALL EL-CB 品牌大店AD', 'Cricle-ALL EL-CB 正韓獨家品牌日', 'Cricle-MKT-蝦皮超便宜', 'Cricle-MKT-刷卡優惠 L1', 'Cricle-MKT-回饋攻略 L2', 'Cricle-MKT-蝦皮分潤', 'Cricle-MKT-蝦皮分潤EDM'];
+let mailLevels     = [];   // loaded from Firebase
+let mailCategories = [];   // loaded from Firebase
+// leaves: [{ id, person, start, end, type, note }]
+let leaves = [];
+
+// 身份（仍放 localStorage，屬於本機偏好）
+let curLeader = localStorage.getItem('curLeader') || null;
+let pendLeader = null, moMailId = null, perfMailId = null, leaveEditId = null;
+let lsS='', lsSt='', lsDes='', lsPF='';
+let perfPeriod = 'week';
+let weeklyPeriod = 'week';
+let leaveCalYear = new Date().getFullYear();
+let leaveCalMonth = new Date().getMonth();
+let activeWeeklyGroup = null;  // currently shown group id
+
+// Firebase 防迴圈 flag
+let _writing = { mails:false, leaders:false, designers:false, projects:false, designers_meta:false, leaves:false, mail_levels:false, mail_categories:false };
+
+const SL={pending:'預先登記',wip:'內部反修中',done:'已完成',revision:'外部反修中',closed:'結案'};
+const SB={pending:'badge-pending',wip:'badge-wip',done:'badge-done',revision:'badge-revision',closed:'badge-closed'};
+
+// ══ UTILS ════════════════════════════════════════════
+const toast   = msg=>{ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); };
+const bHtml   = s=>`<span class="badge ${SB[s]}">${SL[s]}</span>`;
+const dlH     = v=>v?'<span class="badge badge-miss">MISS</span>':'<span style="color:var(--text3);font-size:11px">—</span>';
+const pill    = (v,t)=>!v?'<span class="zp">0</span>':t==='e'?`<span class="ep">${v}</span>`:`<span class="rp">${v}</span>`;
+const isToday = s=>{
+  if(!s) return false;
+  // 用本地時間比較，避免時區問題
+  const now = new Date();
+  const localDate = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  // created_at 是 UTC ISO string，轉換成本地日期比較
+  const mailDate = new Date(s);
+  const mailLocal = mailDate.getFullYear()+'-'+String(mailDate.getMonth()+1).padStart(2,'0')+'-'+String(mailDate.getDate()).padStart(2,'0');
+  return mailLocal === localDate;
+};
+const pastDue = m=>m.due_date&&m.due_date<new Date().toISOString().slice(0,10)&&m.status!=='closed';
+const genId   = ()=>{
+  const d=new Date();
+  // 使用本地日期（避免 UTC 跨日問題）
+  const localDate = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const localPrefix = localDate.replace(/-/g,'');
+  // 保護性過濾：created_at 可能為 undefined（舊資料）
+  const t = mails.filter(m => {
+    if(!m || !m.created_at) return false;
+    const md = new Date(m.created_at);
+    const ms = md.getFullYear()+'-'+String(md.getMonth()+1).padStart(2,'0')+'-'+String(md.getDate()).padStart(2,'0');
+    return ms === localDate;
+  });
+  return localPrefix+'-'+String(t.length+1).padStart(3,'0');
+};
+const lName   = id=>{
+  if(id==='__admin__') return '管理者';
+  const l = leaders.find(x=>x.id===id);
+  if(l) return l.name;
+  // fallback：從 DOM 按鈕讀名字
+  const btn = document.getElementById('lbtn-'+id);
+  if(btn){ const ln=btn.querySelector('.ln'); if(ln) return ln.textContent; }
+  return id||'—';
+};
+const pBundle = name=>projects.find(p=>p.name===name)||null;
+const totalH  = m=>+(((m.hours||0)+(m.revHours||0)+(m.commHours||0)+(m.meetHours||0)).toFixed(2));
+const bundleTotal = p=>+(((p.hours||0)+(p.revHours||0)+(p.commHours||0)+(p.extRevHours||0)).toFixed(2));
+
+// ══ FIREBASE 讀寫（安全版）════════════════════════════
+// 設計原則：
+//   1. 空值保護：data 是空陣列/空物件時拒絕寫入，避免誤覆蓋
+//   2. mails 改用 push key 逐筆存放，永不全量覆蓋
+//   3. 其他設定類資料才用 set（量小、可重建）
+//   4. _writing flag 防止自己的寫入觸發 listener 回衝
+
+let _skipNextDesMetaUpdate = false;
+
+// 通用設定寫入（leaders / designers / projects / leaves / meta）
+// ── Firebase 讀寫核心 ──────────────────────────────────
+// 策略：寫入前先 off()，寫完後再 on()，徹底避免寫入觸發自己的 listener
+
+const _listeners = {}; // 儲存各 table 的 handler function
+
+function _startListen(table, handler){
+  _listeners[table] = handler;
+  db.ref('tracker/' + table).on('value', handler);
+}
+
+function _stopListen(table){
+  if(_listeners[table]) db.ref('tracker/' + table).off('value', _listeners[table]);
+}
+
+function fbWrite(table, data, onDone) {
+  // 空值保護
+  const safetyTables = ['leaders','designers','projects'];
+  if(safetyTables.includes(table)){
+    const isEmpty = Array.isArray(data) ? data.length===0 : !data || Object.keys(data).length===0;
+    if(isEmpty){ console.warn('fbWrite: blocked empty write to ' + table); return; }
+  }
+  // designers_meta 轉成 name-key 格式
+  if(table === 'designers_meta' && Array.isArray(data)){
+    const obj = {};
+    data.forEach((entry, i) => {
+      if(designers[i] && entry && entry.leaderId) obj[designers[i]] = {leaderId: entry.leaderId};
+    });
+    data = obj;
+  }
+  _stopListen(table); // 先暫停 listener
+  db.ref('tracker/' + table).set(data).then(() => {
+    if(onDone) onDone();
+    setTimeout(() => { _startListen(table, _listeners[table]); }, 500); // 500ms 後重啟
+  }).catch(err => {
+    _startListen(table, _listeners[table]); // 失敗也要重啟
+    console.error('Firebase 寫入失敗:', err);
+    toast('⚠ 儲存失敗：' + err.message);
+  });
+}
+
+// mails 專用：逐筆 update + 刪除用 null
+function saveMails() {
+  if(!mails || mails.length === 0) return;
+  const updates = {};
+  mails.forEach(m => { if(m && m.id) updates['tracker/mails/' + m.id] = m; });
+  _writing.mails = true;
+  db.ref().update(updates).then(() => {
+    _mailsInitDone = true;
+    setTimeout(() => { _writing.mails = false; }, 1000);
+  }).catch(err => {
+    _writing.mails = false;
+    toast('⚠ 儲存失敗：' + err.message);
+  });
+}
+
+function saveL(cb)    { fbWrite('leaders',         leaders,      cb); }
+function saveD()      { fbWrite('designers',        designers); }
+function saveP()      { fbWrite('projects',         projects); }
+function saveDesMeta(){
+  const meta = {};
+  designers.forEach(d => { if(designers_meta[d]) meta[d] = designers_meta[d]; });
+  fbWrite('designers_meta', meta);
+}
+function saveLeaves()     { fbWrite('leaves',          leaves); }
+function saveLevels()     { fbWrite('mail_levels',     mailLevels); }
+function saveCategories() { fbWrite('mail_categories', mailCategories); }
+
+// ══ FIREBASE 即時監聽 ══════════════════════════════════
+let _mailsInitDone = false;
+let _mailsInitTimer = null;
+
+db.ref('tracker/mails').on('child_added', snap => {
+  if(_writing.mails) return;
+  const v = snap.val();
+  if(!v || typeof v !== 'object') return;
+  const mail = { ...v, id: v.id || snap.key };
+  const idx = mails.findIndex(m => m.id === mail.id);
+  if(idx >= 0) mails[idx] = mail; else mails.push(mail);
+  if(!_mailsInitDone){
+    clearTimeout(_mailsInitTimer);
+    _mailsInitTimer = setTimeout(()=>{ _mailsInitDone = true; onMailsUpdated(); }, 200);
+  } else {
+    onMailsUpdated();
+  }
+});
+
+db.ref('tracker/mails').on('child_changed', snap => {
+  if(_writing.mails) return;
+  const v = snap.val();
+  if(!v || typeof v !== 'object') return;
+  const mail = { ...v, id: v.id || snap.key };
+  const idx = mails.findIndex(m => m.id === mail.id);
+  if(idx >= 0) mails[idx] = mail; else mails.push(mail);
+  onMailsUpdated();
+});
+
+db.ref('tracker/mails').on('child_removed', snap => {
+  if(_writing.mails) return;
+  mails = mails.filter(m => m.id !== snap.key);
+  onMailsUpdated();
+});
+
+// leaders listener（可被 fbWrite 暫停）
+_startListen('leaders', function(snap){
+  const val = snap.val();
+  let loaded = [];
+  try {
+    if(Array.isArray(val)) loaded = val.filter(x => x && x.id && x.name);
+    else if(val && typeof val === 'object') loaded = Object.values(val).filter(x => x && x.id && x.name);
+  } catch(e) {}
+  if(loaded.length > 0) leaders = loaded;
+  onLeadersUpdated();
+});
+
+// designers listener
+_startListen('designers', function(snap){
+  const val = snap.val();
+  designers = val && Array.isArray(val) ? val : DEFAULT_DESIGNERS;
+  onDesignersUpdated();
+});
+
+// projects listener
+_startListen('projects', function(snap){
+  const val = snap.val();
+  projects = val && Array.isArray(val) ? val.map(p=>({
+    defaultSubjects:[], extRevHours:0, meetHours:0, qty:0, level:'', group:'', pos:'', ...p
+  })) : DEFAULT_PROJECTS;
+  onProjectsUpdated();
+});
+
+// leaves listener
+_startListen('leaves', function(snap){
+  const val = snap.val();
+  leaves = val ? (Array.isArray(val) ? val.filter(Boolean) : Object.values(val)) : [];
+  onLeavesUpdated();
+});
+
+// designers_meta listener
+_startListen('designers_meta', function(snap){
+  const val = snap.val();
+  designers_meta = {};
+  if(val && typeof val === 'object' && !Array.isArray(val)){
+    designers_meta = val;
+  } else if(Array.isArray(val)){
+    val.forEach((entry, i) => {
+      if(designers[i] && entry && entry.leaderId)
+        designers_meta[designers[i]] = { leaderId: entry.leaderId };
+    });
+  }
+  onDesMetaUpdated();
+});
+
+// mail_levels listener
+_startListen('mail_levels', function(snap){
+  const val = snap.val();
+  mailLevels = (val && Array.isArray(val)) ? val : [...DEFAULT_LEVELS];
+  populateLevelCategorySelects();
+  updateCatDatalist();
+});
+
+// mail_categories listener
+_startListen('mail_categories', function(snap){
+  const val = snap.val();
+  mailCategories = (val && Array.isArray(val)) ? val : [...DEFAULT_CATEGORIES];
+  populateLevelCategorySelects();
+});
+
+// Firebase 連線狀態
+db.ref('.info/connected').on('value', snap => {
+  const connected = snap.val();
+  const dot   = document.getElementById('fb-dot');
+  const label = document.getElementById('fb-label');
+  if (!dot) return;
+  dot.className   = 'fb-dot ' + (connected ? 'connected' : 'error');
+  label.textContent = connected ? '即時同步中' : '連線中斷';
+});
+
+// ══ 資料更新回調 ══════════════════════════════════════
+function onMailsUpdated() {
+  updateWip();
+  renderToday();
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (ap === 'board')     renderKanban();
+  if (ap === 'list')      renderList();
+  if (ap === 'perf')      renderPerf();
+  if (ap === 'weekly')    renderWeekly();
+}
+
+function onLeadersUpdated() {
+  renderLoginBtns();
+  applyChip();
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (ap === 'settings') renderSettings();
+  if (ap === 'board')    renderKanban(); // 組長資料更新後重渲看板
+}
+
+function onDesignersUpdated() {
+  populateSelects();
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (ap === 'settings') renderSettings();
+}
+
+function onProjectsUpdated() {
+  populateSelects();
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (ap === 'bundle') renderBundlePage('');
+  if (ap === 'dispatch') {}  // selects already refreshed
+}
+
+function onDesMetaUpdated() {
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  // Do NOT re-render settings when user is actively editing — it would wipe their unsaved changes
+  // Settings page will read fresh data next time it's opened or after save
+  if (ap === 'perf')     renderPerf();
+  if (ap === 'weekly')   renderWeekly();
+}
+function onLeavesUpdated() {
+  const ap = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (ap === 'leave')    renderLeaveCalendar();
+  if (ap === 'weekly')   renderWeekly();
+}
 
 // ══ POPULATE SELECTS ═════════════════════════════════
 function populateSelects(){
@@ -970,12 +1657,19 @@ function updateCatDatalist(){
 
 // ══ LOGIN ════════════════════════════════════════════
 function renderLoginBtns(){
-  document.getElementById('leader-grid').innerHTML = leaders.map(l=>`
-    <button class="lbtn" onclick="selLeader('${l.id}',this)">
-      <div class="li">👤</div><div class="ln">${l.name}</div><div class="lr">LEADER-${l.id}</div>
-    </button>`).join('');
+  // 組長按鈕已硬寫在 HTML，這裡只負責同步 leaders 陣列（給其他功能用）
+  const show = (leaders && leaders.length > 0) ? leaders : DEFAULT_LEADERS;
+  if (!leaders || !leaders.length) leaders = [...DEFAULT_LEADERS];
+  // 若 Firebase 有更新的組長清單，重新渲染
+  const grid = document.getElementById('leader-grid');
+  if(grid && show !== DEFAULT_LEADERS){
+    grid.innerHTML = show.map(l=>`
+      <button class="lbtn" onclick="selLeader('${l.id}',this)">
+        <div class="li">👤</div><div class="ln">${l.name}</div><div class="lr">LEADER-${l.id}</div>
+      </button>`).join('');
+  }
   const rec = document.getElementById('emergency-recovery');
-  if(rec) rec.style.display = leaders.length===0 ? 'block' : 'none';
+  if(rec) rec.style.display = 'none';
 }
 function emergencyRestoreLeaders(){
   leaders = [...DEFAULT_LEADERS];
@@ -990,8 +1684,16 @@ function emergencyRestoreLeaders(){
 function selLeader(id,btn){
   document.querySelectorAll('.lbtn').forEach(b=>b.classList.remove('sel'));
   btn.classList.add('sel');
-  if(id==='__admin__'){pendLeader='__admin__';openPw();}
-  else{pendLeader=id;unlockLogin();}
+  if(id==='__admin__'){
+    pendLeader='__admin__'; openPw();
+  } else {
+    // 確保 leaders 陣列有這個人，沒有就從 DEFAULT_LEADERS 補入
+    if(!leaders.find(l=>l.id===id)){
+      const def = DEFAULT_LEADERS.find(l=>l.id===id);
+      if(def) leaders = [...DEFAULT_LEADERS];
+    }
+    pendLeader=id; unlockLogin();
+  }
 }
 function unlockLogin(){ const b=document.getElementById('login-confirm'); b.style.opacity='1'; b.style.pointerEvents='auto'; }
 function lockLogin()  { const b=document.getElementById('login-confirm'); b.style.opacity='.4'; b.style.pointerEvents='none'; }
@@ -1258,6 +1960,95 @@ function renderToday(){
 }
 
 // ══ KANBAN ════════════════════════════════════════════
+
+// ── 看板選取模式 ──────────────────────────────────────
+let _kanbanSelectMode = false;
+let _kanbanSelected = new Set();
+
+function kcardClick(e, el){
+  const id = el.dataset.mid;
+  if(!id) return;
+  if(_kanbanSelectMode){
+    const cb = el.querySelector('.kcard-check');
+    if(cb && e.target !== cb){
+      cb.checked = !cb.checked;
+      kanbanToggleSelect(id, cb.checked);
+    }
+  } else {
+    openEdit(id);
+  }
+}
+
+function toggleKanbanSelectMode(){
+  _kanbanSelectMode = !_kanbanSelectMode;
+  _kanbanSelected.clear();
+  const btn = document.getElementById('btn-select-mode');
+  const delBtn = document.getElementById('btn-delete-selected');
+  const bar = document.getElementById('kanban-select-bar');
+  if(btn) btn.textContent = _kanbanSelectMode ? '✕ 取消選取' : '☑ 選取模式';
+  if(btn) btn.style.background = _kanbanSelectMode ? 'var(--amber)' : '';
+  if(delBtn) delBtn.style.display = _kanbanSelectMode ? '' : 'none';
+  if(bar) bar.style.display = _kanbanSelectMode ? 'flex' : 'none';
+  renderKanban();
+}
+
+function kanbanSelectAll(checked){
+  const checkboxes = document.querySelectorAll('.kcard-check');
+  checkboxes.forEach(cb => {
+    cb.checked = checked;
+    const id = cb.dataset.id;
+    if(checked) _kanbanSelected.add(id);
+    else _kanbanSelected.delete(id);
+  });
+  updateKanbanSelectCount();
+}
+
+function kanbanToggleSelect(id, checked){
+  if(checked) _kanbanSelected.add(id);
+  else _kanbanSelected.delete(id);
+  updateKanbanSelectCount();
+  // 同步全選checkbox
+  const all = document.querySelectorAll('.kcard-check');
+  const allChecked = Array.from(all).every(cb => cb.checked);
+  const selAll = document.getElementById('kanban-select-all');
+  if(selAll) selAll.checked = allChecked;
+}
+
+function updateKanbanSelectCount(){
+  const el = document.getElementById('kanban-select-count');
+  if(el) el.textContent = _kanbanSelected.size > 0 ? '已選取 ' + _kanbanSelected.size + ' 筆' : '';
+  const delBtn = document.getElementById('btn-delete-selected');
+  if(delBtn) delBtn.style.display = (_kanbanSelectMode && _kanbanSelected.size > 0) ? '' : 'none';
+}
+
+async function deleteSelectedMails(){
+  if(_kanbanSelected.size === 0){ toast('請先選取要刪除的工單'); return; }
+  if(!confirm('確定刪除選取的 ' + _kanbanSelected.size + ' 筆工單？此操作無法復原')) return;
+  const ids = Array.from(_kanbanSelected);
+
+  // 用 update + null 一次刪除所有選取（最可靠的 Firebase 刪除方式）
+  const updates = {};
+  ids.forEach(id => { updates['tracker/mails/' + id] = null; });
+
+  // 本地先移除立即更新畫面
+  mails = mails.filter(m => !ids.includes(m.id));
+  _kanbanSelected.clear();
+  _writing.mails = true;  // 暫停 listener 避免 child_added 加回來
+  renderToday(); renderList(); renderKanban();
+  updateKanbanSelectCount();
+
+  try {
+    await db.ref().update(updates);
+    setTimeout(() => { _writing.mails = false; }, 2000);
+    toast('✓ 已刪除 ' + ids.length + ' 筆工單');
+  } catch(err) {
+    _writing.mails = false;
+    // 刪除失敗：把資料加回來
+    toast('⚠ 刪除失敗（可能是 Firebase 權限問題）：' + err.message);
+    console.error('Delete failed:', err);
+  }
+}
+
 function renderKanban(){
   // 確保設計師篩選選單是最新的
   const kf = document.getElementById('kanban-filter');
@@ -1274,24 +2065,34 @@ function renderKanban(){
     document.getElementById('kc-'+col).textContent = items.length;
     document.getElementById('k-'+col).innerHTML = items.length ? items.map(m=>{
       const mine = isMyDes(m.designer);
-      return `<div class="kcard${mine?' my-team':''}" draggable="true"
-        ondragstart="kanbanDragStart(event,'${m.id}')"
-        ondragend="this.style.opacity='1'"
-        onclick="openEdit('${m.id}')">
-        <div class="kid">${m.id}</div>
-        <div class="ksub">${m.subject}</div>
-        <div class="kmeta">
-          <span class="dtag" style="${mine?'color:var(--accent);background:rgba(79,142,247,.15)':''}">${m.designer}</span>
-          <div style="display:flex;gap:6px;align-items:center;">
-            ${m.dl_miss?'<span class="miss-dot"></span>':''}
-            ${m.revision_count?`<span style="font-family:var(--mono);font-size:10px;color:var(--amber)">R${m.revision_count}</span>`:''}
-            <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${totalH(m)}h</span>
-          </div>
-        </div>
-      </div>`;
+      return '<div class="kcard'+(mine?' my-team':'')+'"'
+        +' data-mid="'+m.id+'"'
+        +' draggable="'+(_kanbanSelectMode?'false':'true')+'"'
+        +(_kanbanSelectMode?' style="cursor:default;"':'')
+        +' onclick="kcardClick(event,this)">'
+        +(_kanbanSelectMode
+          ? '<input type="checkbox" class="kcard-check"'
+            +' data-id="'+m.id+'"'
+            +(_kanbanSelected.has(m.id)?' checked':'')
+            +' onclick="event.stopPropagation()"'
+            +' onchange="kanbanToggleSelect(this.dataset.id,this.checked)"'
+            +' style="width:auto;margin-right:6px;accent-color:var(--accent);">'
+          : '')
+        +'<div class="kid">'+m.id+'</div>'
+        +'<div class="ksub">'+m.subject+'</div>'
+        +'<div class="kmeta">'
+          +'<span class="dtag" style="'+(mine?'color:var(--accent);background:rgba(79,142,247,.15)':'')+'">'+m.designer+'</span>'
+          +'<div style="display:flex;gap:6px;align-items:center;">'
+            +(m.dl_miss?'<span class="miss-dot"></span>':'')
+            +(m.revision_count?'<span style="font-family:var(--mono);font-size:10px;color:var(--amber)">R'+m.revision_count+'</span>':'')
+            +'<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">'+totalH(m)+'h</span>'
+          +'</div>'
+        +'</div>'
+      +'</div>';
     }).join('') : '<div style="padding:8px 4px;font-size:12px;color:var(--text3);text-align:center">—</div>';
   });
 }
+
 
 let _dragMailId = null;
 function kanbanDragStart(e, mailId){
@@ -1481,16 +2282,20 @@ function deleteMail(id, triggerBtn){
   if(!m)return;
   if(!confirm('確定刪除「'+m.subject+'」？'))return;
   if(triggerBtn){ triggerBtn.disabled=true; triggerBtn.textContent='刪除中…'; }
+  // 本地先移除立即更新畫面
+  mails = mails.filter(x=>x.id!==id);
+  closeMo();
+  renderToday(); renderList(); renderKanban();
+  // Firebase 刪除用 update+null（最可靠，不受 Security Rules 誤判）
+  const del = {}; del['tracker/mails/'+id] = null;
   _writing.mails = true;
-  db.ref('tracker/mails/'+id).remove().then(()=>{
-    mails=mails.filter(x=>x.id!==id);
-    renderToday(); // 立即本地更新
-    renderList(); renderKanban();
-    setTimeout(()=>{ _writing.mails=false; },800);
-    closeMo();
+  db.ref().update(del).then(()=>{
+    setTimeout(()=>{ _writing.mails = false; }, 2000);
     toast('✓ 已刪除');
   }).catch(err=>{
-    _writing.mails=false;
+    _writing.mails = false;
+    mails.unshift(m);
+    renderToday(); renderList(); renderKanban();
     if(triggerBtn){ triggerBtn.disabled=false; triggerBtn.textContent='刪除'; }
     toast('⚠ 刪除失敗：'+err.message);
   });
@@ -1928,17 +2733,20 @@ function saveEdit(){
 
 function deleteMailFromEdit(){
   const m = mails.find(x=>x.id===editMailId); if(!m) return;
-  if(!confirm(`確定刪除「${m.subject}」？此操作無法復原`)) return;
+  if(!confirm('確定刪除「'+m.subject+'」？此操作無法復原')) return;
   const idToDelete = editMailId;
+  mails = mails.filter(x=>x.id!==idToDelete);
+  closeEdit();
+  renderToday(); renderList(); renderKanban();
+  const del2 = {}; del2['tracker/mails/'+idToDelete] = null;
   _writing.mails = true;
-  db.ref('tracker/mails/'+idToDelete).remove().then(()=>{
-    mails = mails.filter(x=>x.id!==idToDelete);
-    closeEdit();
-    renderToday(); renderList(); renderKanban(); // 立即本地更新
-    setTimeout(()=>{ _writing.mails=false; },800);
+  db.ref().update(del2).then(()=>{
+    setTimeout(()=>{ _writing.mails = false; }, 2000);
     toast('✓ 已刪除');
   }).catch(err=>{
     _writing.mails = false;
+    mails.unshift(m);
+    renderToday(); renderList(); renderKanban();
     toast('⚠ 刪除失敗：'+err.message);
   });
 }
@@ -2080,41 +2888,28 @@ function renderSettings(){
       <button class="btn btn-danger btn-sm" onclick="removeLeader(${i})">刪除</button>
     </div>`).join('');
 
-  // 設計師列表
-  document.getElementById('d-count').textContent=designers.length+' 位';
-  document.getElementById('designers-list').innerHTML=designers.map((d,i)=>`
-    <div class="irow">
-      <span class="ilabel">${d}</span>
-      <button class="btn btn-danger btn-sm" onclick="removeDes(${i})">刪除</button>
-    </div>`).join('');
+  // 設計師列表（含組長歸屬下拉，合併顯示）
+  const lOptsHtml = leaders.map(l=>`<option value="${l.id}">${l.name}</option>`).join('');
+  document.getElementById('d-count').textContent = designers.length + ' 位';
+  document.getElementById('designers-list').innerHTML = designers.length
+    ? designers.map((d,i)=>`
+        <div class="irow" style="gap:10px;">
+          <span class="ilabel" style="flex:1;min-width:120px;">${d}</span>
+          <select id="des-sel-${i}" style="width:120px;font-size:12px;padding:5px 8px;">
+            <option value="">— 未指派 —</option>${lOptsHtml}
+          </select>
+          <button class="btn btn-danger btn-sm" onclick="removeDes(${i})">刪除</button>
+        </div>`).join('')
+    : '<div style="font-size:12px;color:var(--text3);padding:10px 0">尚無設計師</div>';
+
+  // 填入目前歸屬值
+  designers.forEach((d,i)=>{
+    const sel = document.getElementById('des-sel-'+i);
+    if(sel) sel.value = (designers_meta[d] && designers_meta[d].leaderId) || '';
+  });
 
   // 等級 / 類別清單
   renderLevelCategorySettings();
-
-  // 設計師歸屬設定
-  const assignEl=document.getElementById('des-assign-list');
-  if(assignEl){
-    const lOpts=leaders.map(l=>`<option value="${l.id}">${l.name}</option>`).join('');
-    const lOpts2=leaders.map(l=>`<option value="${l.id}">${l.name}</option>`).join('');
-    assignEl.innerHTML=designers.length?`
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--border);">
-        <span style="font-size:12px;color:var(--text2);">修改後記得按「儲存歸屬設定」</span>
-        <button class="btn btn-primary btn-sm" onclick="saveAllDesLeaders()">💾 儲存歸屬設定</button>
-      </div>
-      ${designers.map((d,i)=>`
-        <div class="des-assign-row">
-          <span class="des-assign-name">${d}</span>
-          <select class="des-assign-sel" id="des-sel-${i}">
-            <option value="">— 未指派 —</option>${lOpts2}
-          </select>
-        </div>`).join('')}
-    ` :`<div style="font-size:12px;color:var(--text3);padding:10px 0">尚無設計師</div>`;
-    // 設定當前值（用 index 對應，避免特殊字元問題）
-    designers.forEach((d,i)=>{
-      const sel=document.getElementById('des-sel-'+i);
-      if(sel) sel.value=designers_meta[d]?.leaderId||'';
-    });
-  }
 }
 
 function saveLeader(i){
@@ -2153,7 +2948,7 @@ function saveAllDesLeaders(){
   _skipNextDesMetaUpdate = true;
   saveDesMeta();
   // 按鈕變色確認
-  const btn = document.querySelector('#des-assign-list button[onclick="saveAllDesLeaders()"]');
+  const btn = document.getElementById('btn-save-des-meta');
   if(btn){
     const orig = btn.innerHTML;
     btn.innerHTML = '✅ 已儲存！';
@@ -2991,14 +3786,18 @@ document.getElementById('f-due').valueAsDate = new Date(Date.now()+86400000);
 mailLevels = [...DEFAULT_LEVELS];
 mailCategories = [...DEFAULT_CATEGORIES];
 populateLevelCategorySelects();
+// 強制先用預設組長顯示（不等 Firebase，確保登入頁一定有人）
+leaders = [...DEFAULT_LEADERS];
 renderLoginBtns();
 
-// 立即檢查，若組長空白就自動寫入預設（並在Firebase回傳後更新）
-setTimeout(()=>{
-  if(!leaders||leaders.length===0){
-    leaders=[...DEFAULT_LEADERS]; saveL(); renderLoginBtns();
-  }
-},0);
+// 同時強制把正確資料寫回 Firebase（修復損壞的資料）
+// _writing.leaders 設 true 避免自己的 listener 再讀回來干擾
+_writing.leaders = true;
+db.ref('tracker/leaders').set([...DEFAULT_LEADERS]).then(function(){
+  setTimeout(function(){ _writing.leaders = false; }, 3000);
+}).catch(function(){
+  _writing.leaders = false;
+});
 
 if(curLeader){
   document.getElementById('ls').classList.add('hidden');
@@ -3407,6 +4206,9 @@ function resetCustomTheme(name){
 
 // 頁面載入時套用主題
 try{ loadTheme(); }catch(e){}
+
+
+// ══════════════════════════════════════════════════
 </script>
 </body>
 </html>
