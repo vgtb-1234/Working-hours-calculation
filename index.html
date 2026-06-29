@@ -413,6 +413,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div style="display:flex;gap:5px;align-items:center;">
       <button class="theme-btn active" id="tb-dark"  title="深色系" onclick="setTheme('dark')">🌑</button>
       <button class="theme-btn"        id="tb-light" title="白色系" onclick="setTheme('light')">☀️</button>
+      <button class="theme-btn"        id="tb-gray"  title="灰色系" onclick="setTheme('gray')">🌫️</button>
       <button class="theme-btn"        id="tb-custom" title="自訂"  onclick="openThemeModal()">🎨</button>
     </div>
     <!-- Firebase 即時連線狀態 -->
@@ -1426,14 +1427,14 @@ function fbWrite(table, data, onDone) {
 // mails 專用：逐筆 update + 刪除用 null
 function saveMails() {
   if(!mails || mails.length === 0) return;
-  const updates = {};
-  mails.forEach(m => { if(m && m.id) updates['tracker/mails/' + m.id] = m; });
+  // mails 在 Firebase 存為 array，整包寫回
   _writing.mails = true;
-  db.ref().update(updates).then(() => {
+  db.ref('tracker/mails').set(mails).then(() => {
     _mailsInitDone = true;
-    setTimeout(() => { _writing.mails = false; }, 1000);
+    setTimeout(() => { _writing.mails = false; }, 1500);
   }).catch(err => {
     _writing.mails = false;
+    console.error('mails 寫入失敗:', err);
     toast('⚠ 儲存失敗：' + err.message);
   });
 }
@@ -1480,7 +1481,7 @@ db.ref('tracker/mails').on('child_changed', snap => {
 });
 
 db.ref('tracker/mails').on('child_removed', snap => {
-  if(_writing.mails) return;
+  // 不檢查 _writing.mails，確保刪除事件一定被處理
   mails = mails.filter(m => m.id !== snap.key);
   onMailsUpdated();
 });
@@ -2025,27 +2026,21 @@ async function deleteSelectedMails(){
   if(!confirm('確定刪除選取的 ' + _kanbanSelected.size + ' 筆工單？此操作無法復原')) return;
   const ids = Array.from(_kanbanSelected);
 
-  // 用 update + null 一次刪除所有選取（最可靠的 Firebase 刪除方式）
-  const updates = {};
-  ids.forEach(id => { updates['tracker/mails/' + id] = null; });
-
-  // 本地先移除立即更新畫面
+  // mails 存為 array，刪除方式：過濾後整包寫回
   mails = mails.filter(m => !ids.includes(m.id));
   _kanbanSelected.clear();
-  _writing.mails = true;  // 暫停 listener 避免 child_added 加回來
   renderToday(); renderList(); renderKanban();
   updateKanbanSelectCount();
 
-  try {
-    await db.ref().update(updates);
-    setTimeout(() => { _writing.mails = false; }, 2000);
+  _writing.mails = true;
+  db.ref('tracker/mails').set(mails.length ? mails : null).then(()=>{
+    _mailsInitDone = true;
+    setTimeout(()=>{ _writing.mails = false; }, 1500);
     toast('✓ 已刪除 ' + ids.length + ' 筆工單');
-  } catch(err) {
+  }).catch(err=>{
     _writing.mails = false;
-    // 刪除失敗：把資料加回來
-    toast('⚠ 刪除失敗（可能是 Firebase 權限問題）：' + err.message);
-    console.error('Delete failed:', err);
-  }
+    toast('⚠ 刪除失敗：' + err.message);
+  });
 }
 
 function renderKanban(){
@@ -2285,11 +2280,11 @@ function deleteMail(id, triggerBtn){
   mails = mails.filter(x=>x.id!==id);
   closeMo();
   renderToday(); renderList(); renderKanban();
-  // Firebase 刪除用 update+null（最可靠，不受 Security Rules 誤判）
-  const del = {}; del['tracker/mails/'+id] = null;
+  // mails 存為 array，整包寫回
   _writing.mails = true;
-  db.ref().update(del).then(()=>{
-    setTimeout(()=>{ _writing.mails = false; }, 2000);
+  db.ref('tracker/mails').set(mails.length ? mails : null).then(()=>{
+    _mailsInitDone = true;
+    setTimeout(()=>{ _writing.mails = false; }, 1500);
     toast('✓ 已刪除');
   }).catch(err=>{
     _writing.mails = false;
@@ -2737,10 +2732,10 @@ function deleteMailFromEdit(){
   mails = mails.filter(x=>x.id!==idToDelete);
   closeEdit();
   renderToday(); renderList(); renderKanban();
-  const del2 = {}; del2['tracker/mails/'+idToDelete] = null;
   _writing.mails = true;
-  db.ref().update(del2).then(()=>{
-    setTimeout(()=>{ _writing.mails = false; }, 2000);
+  db.ref('tracker/mails').set(mails.length ? mails : null).then(()=>{
+    _mailsInitDone = true;
+    setTimeout(()=>{ _writing.mails = false; }, 1500);
     toast('✓ 已刪除');
   }).catch(err=>{
     _writing.mails = false;
